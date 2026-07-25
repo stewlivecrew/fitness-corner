@@ -31,13 +31,24 @@ inline SVG.
 
 **Files:**
 
-- `fitness-corner-generator.jsx` — source of truth (Claude artifact form)
-- `index.html` — deployable standalone (JSX + storage shim + CDN wrapper)
+- `sandbox.html` — the working/testing copy. Edit this freely during a
+  session; served by the local dev server for live iteration. Not
+  authoritative — see decision log `[architecture]` entry below.
+- `fitness-corner-generator.jsx` — canonical source (Claude artifact form).
+  Synced by porting finalized `sandbox.html` changes into it at commit
+  checkpoints, not continuously.
+- `index.html` — **generated, never hand-edited.** Produced from
+  `fitness-corner-generator.jsx` by `scripts/build_html.py` (wraps it in
+  the CDN scripts + localStorage storage shim + HTML skeleton). This is
+  the file committed/deployed to GitHub Pages.
 - `exercises.md` — source-of-truth exercise library (see Data model below);
-  edit this, not the `EXERCISES` array directly
+  edit this, not the `EXERCISES` array directly.
 - `scripts/build_exercises.py` — regenerates the `EXERCISES` array in both
-  `index.html` and `fitness-corner-generator.jsx` from `exercises.md`
-  (stdlib-only Python, no dependencies; run after editing the doc)
+  `sandbox.html` and `fitness-corner-generator.jsx` from `exercises.md`
+  (stdlib-only Python, no dependencies; run after editing the doc).
+- `scripts/build_html.py` — regenerates `index.html` from
+  `fitness-corner-generator.jsx` (stdlib-only Python). Run this after
+  syncing the `.jsx`, before committing.
 - `CLAUDE.md` — this file
 
 **Owner intent:** Not a money project. Pay-once/"cover hosting costs" model
@@ -57,14 +68,15 @@ this. Do not break it.
 
 ### Data model
 
-**`exercises.md` is the source of truth** (124 entries as of this writing).
+**`exercises.md` is the source of truth** (134 entries as of this writing).
 Authored per-exercise as a Markdown block (pattern heading → `###` name →
 `- field: value` lines, including a `status: active|candidate` field so new
 ideas can be staged without wiring them into the app yet). Run
 `python3 scripts/build_exercises.py` after any edit — it regenerates the
-`EXERCISES` array in both `index.html` and `fitness-corner-generator.jsx`
-from the doc. Never hand-edit the `EXERCISES` array in either file directly;
-the next build will overwrite it.
+`EXERCISES` array in both `sandbox.html` and `fitness-corner-generator.jsx`
+from the doc (run `scripts/build_html.py` afterward to carry it into
+`index.html`). Never hand-edit the `EXERCISES` array directly; the next
+build will overwrite it.
 
 Exercise entry schema (compiled `EXERCISES` array, generated — read-only):
 
@@ -124,8 +136,17 @@ Exercise entry schema (compiled `EXERCISES` array, generated — read-only):
   walks); cool-down is STATIC long holds. Same position can appear in
   both with different jobs (deep squat: rehearsal pre, tissue work post).
   Keep the dynamic-before/static-after split.
-- Cool-down items are equipment-aware (bench → couch stretch, bench
-  pigeon; bar → dead hang else forward fold).
+- Warm-up and cool-down are both **equipment-aware** (bench → couch
+  stretch, bench pigeon; bar → dead hang else forward fold else cross-body
+  shoulder stretch) **and focus-aware**: three booleans derived from
+  `FOCUS[focus].patterns` — `needsUpperPrep` (any of verticalPush/
+  verticalPull/horizontalPush/horizontalPull), `needsLowerPrep` (any of
+  kneeDominant/hipDominant/gripAthletic), `needsGripPrep` (gripAthletic
+  present) — gate which items render. "Full body" trips both upper and
+  lower prep by construction (its pattern mix spans both), not as a
+  special case. Tibialis raise (wall lean) is included in warm-up
+  whenever `needsLowerPrep` is true, at a lighter prep dose than its
+  full working-set version in the exercise library.
 - Progression standard (shown on workout screen): top of rep range, every
   set, two sessions in a row → promote via "Harder +". Adapted from the
   r/bodyweightfitness RR 3×8 rule.
@@ -184,10 +205,12 @@ Exercise entry schema (compiled `EXERCISES` array, generated — read-only):
 ### Deployment
 
 GitHub Pages: repo `fitness-corner`, `index.html` at root, Pages from
-main branch. Update flow: regenerate `index.html` (JSX → HTML wrapper
-with React/Babel CDN + localStorage shim), overwrite in repo, commit —
-same URL, ~1–2 min propagation. localStorage is per-browser-per-device
-(no sync) — accepted beta constraint.
+main branch (Pages requires this exact filename/location to auto-serve).
+Update flow: edit `sandbox.html` during the session → port finalized
+changes into `fitness-corner-generator.jsx` → run
+`python3 scripts/build_html.py` to regenerate `index.html` → commit →
+push. Same URL, ~1–2 min propagation. localStorage is per-browser-per-
+device (no sync) — accepted beta constraint.
 
 ### Content sources & attribution
 
@@ -283,6 +306,17 @@ Format: `[decision] what — why. (supersedes: none unless noted)`
   and no need to add a dependency) — keeps the deployed app's
   zero-build-step property intact; the build step is a maintainer-only,
   local, pre-commit action, not something the deployed page runs.
+- [architecture] Split the single `index.html` editing target into
+  `sandbox.html` (freely edited/tested) + `fitness-corner-generator.jsx`
+  (canonical, synced at commit checkpoints) + generated `index.html`
+  (via new `scripts/build_html.py`) — `.jsx` was already documented as
+  "source of truth" but nothing enforced that in practice; an entire
+  session's worth of UI changes (collapsible sections, toggles,
+  focus-aware warm-up/cool-down) landed only in `index.html` via direct
+  edits and never made it into the `.jsx`, silently diverging. Making
+  `index.html` mechanically generated (verified byte-identical to the
+  prior hand-maintained version via diff) removes the manual-discipline
+  failure mode instead of just asking future-me to remember better.
 
 ### Known limitations (honest list)
 
@@ -297,3 +331,7 @@ Format: `[decision] what — why. (supersedes: none unless noted)`
   testers report rating fatigue.
 - Anatomy figure regions are cartoon-approximate; leg-press pictogram is
   the weakest icon.
+- Lower body and Core & grip focuses currently render identical warm-up/
+  cool-down content — both trigger the same `needsLowerPrep`/
+  `needsGripPrep` flags. Accepted for now; revisit if it starts feeling
+  wrong once more testers exercise those two focus modes specifically.

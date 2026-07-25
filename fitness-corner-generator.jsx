@@ -230,7 +230,7 @@ const EXERCISES = [
   { p: "horizontalPull", lvl: 4, name: "Archer row", req: ["lowBar"], reps: "4–6 / side", mus: ["upperBack", "lats", "biceps"], how: "Take a wide grip on the bar in a row position. Pull your chest toward one hand while the other arm stays straight along the bar, then lower and pull toward the other side.", cue: "One arm is doing nearly everything — the path to the one-arm row." },
   { p: "horizontalPull", lvl: 4, name: "Tuck front-lever row", req: ["highBar"], reps: "4–6", mus: ["lats", "upperBack", "abs", "biceps"], how: "Hang from the high bar, pull your knees to your chest, and lean back until your back is flat and facing the ground — body horizontal, knees tucked. From there, pull the bar to your hips and lower back to straight arms, all while staying horizontal.", cue: "Hold the horizontal body line the entire time — that's the exercise inside the exercise." },
 
-  // ---- Knee dominant ----
+  // ---- Knee-dominant ----
   { p: "kneeDominant", lvl: 1, name: "Bench squat", req: ["bench"], reps: "10–15", mus: ["quads", "glutes"], how: "Stand in front of the bench facing away from it, feet shoulder-width apart. Bend your knees and push your hips back to sit down until you lightly touch the bench, then stand straight back up.", cue: "Touch, don't rest — drive up through the middle of your feet." },
   { p: "kneeDominant", lvl: 1, name: "Air squat", req: [], reps: "12–20", mus: ["quads", "glutes"], how: "Stand with feet shoulder-width apart, toes slightly out. Bend your knees and push your hips back to lower down as far as comfortable — ideally until your thighs pass parallel to the ground — then stand back up.", cue: "Chest stays tall, heels stay planted." },
   { p: "kneeDominant", lvl: 1, name: "Leg press (lever)", req: ["legPressM"], reps: "12–15", mus: ["quads", "glutes"], how: "Sit in the machine with your feet on the plate and push it away until your legs are almost straight, then let it come back slowly.", cue: "Fixed light resistance — try one leg at a time with a slow tempo to make it count." },
@@ -247,7 +247,7 @@ const EXERCISES = [
   { p: "kneeDominant", lvl: 4, name: "Assisted pistol squat", req: ["lowBar"], reps: "4–6 / leg", mus: ["quads", "glutes"], how: "Stand on one leg beside the bar, holding it lightly with your fingertips, other leg straight out in front. Squat all the way down on the standing leg, then push back up, using the bar only for balance.", cue: "Fingertips for balance, not a pull — the leg does the lifting." },
   { p: "kneeDominant", lvl: 4, name: "Pistol squat", req: [], reps: "3–6 / leg", mus: ["quads", "glutes"], how: "Stand on one leg with the other held straight out in front and arms reaching forward for balance. Squat all the way down on the standing leg, then stand back up.", cue: "Heel stays glued down; free leg stays off the ground the whole rep." },
 
-  // ---- Hip dominant ----
+  // ---- Hip-dominant ----
   { p: "hipDominant", lvl: 1, name: "Elephant walk", req: [], reps: "15–20 / side", mus: ["hamstrings", "lowerBack"], how: "Stand and fold forward at the hips, reaching your hands toward the ground (bend both knees as much as you need to touch). Then alternately straighten one knee at a time while the other bends, pressing each straightening leg's heel down — like slowly 'walking' in place while folded over. Keep breathing.", cue: "Over weeks, your hands get closer to flat on the floor — hamstrings and a healthy, mobile lower back in one drill." },
   { p: "hipDominant", lvl: 1, name: "Glute bridge", req: [], reps: "12–15", mus: ["glutes", "hamstrings"], how: "Lie on your back with knees bent and feet flat on the ground near your hips. Push through your heels to lift your hips up until your body is a straight line from knees to shoulders, then lower down.", cue: "Squeeze at the top for 2 counts; don't arch the lower back to get higher." },
   { p: "hipDominant", lvl: 2, name: "Single-leg glute bridge", req: [], reps: "8–12 / leg", mus: ["glutes", "hamstrings"], how: "Set up a glute bridge, then lift one foot off the ground and hold that leg up. Lift and lower your hips using only the planted leg.", cue: "Hips stay level — don't let the free side sag." },
@@ -313,6 +313,16 @@ const EXERCISES = [
   { ath: "skill", p: "gripAthletic", lvl: 1, name: "Bear crawl", req: [], reps: "10–15m", mus: ["shoulders", "abs", "quads"], how: "Get on hands and feet with your knees bent and hovering just off the ground. Crawl forward by moving your opposite hand and foot together, keeping your back flat and hips low.", cue: "Slow and level — imagine a cup of water balanced on your lower back." },
   { ath: "skill", p: "gripAthletic", lvl: 1, name: "Crab walk", req: [], reps: "10m each way", mus: ["triceps", "glutes", "shoulders"], how: "Sit on the ground, place your hands behind you and lift your hips so you're supported on hands and feet, belly facing the sky. Walk forward, then backward.", cue: "Hips stay lifted the whole way — great shoulder and glute wake-up." },
   { ath: "skill", p: "gripAthletic", lvl: 3, name: "Precision jump to beam", req: ["beam"], reps: "5–8", mus: ["quads", "calves", "abs"], how: "Stand a short, comfortable distance from the balance beam. Jump with both feet and land on the beam, sticking the landing with bent knees before stepping down. Increase the distance only when landings are perfect.", cue: "Accuracy over distance — a stuck landing from close beats a wobble from far." },
+  { ath: "elastic", p: "gripAthletic", lvl: 1, name: "High knees + toe taps (bench)", req: ["bench"], reps: "2 × 20s", mus: ["quads", "calves", "abs"], how: "Stand facing the end of the bench, about half a step back. Drive your knees up quickly one at a time, tapping the top of the bench lightly with the ball of each foot before it comes back down, alternating in a light running rhythm.", cue: "Quick and light — the tap is a touch, not a stomp." },
+  { ath: "power", p: "gripAthletic", lvl: 2, name: "Fast step-ups (step)", req: ["step"], reps: "10 / leg", mus: ["quads", "glutes", "calves"], how: "Stand facing the platform. Drive one foot up onto it and push through that leg to snap your whole body up fast, then step straight back down and immediately drive up again — same leg leads every rep, then switch.", cue: "Speed off the platform is the point — this is the explosive cousin of the slow step-up." },
+  { ath: "power", p: "gripAthletic", lvl: 2, name: "Fast step-ups (bench)", req: ["bench"], reps: "10 / leg", mus: ["quads", "glutes", "calves"], how: "Stand facing the bench. Drive one foot up onto it and push through that leg to snap your whole body up fast, then step straight back down and immediately drive up again — same leg leads every rep, then switch.", cue: "Speed off the bench is the point — this is the explosive cousin of the slow step-up." },
+  { ath: "power", p: "gripAthletic", lvl: 2, name: "Burpees", req: [], reps: "8–10", mus: ["chest", "quads", "glutes", "abs", "shoulders"], how: "Stand tall, then squat down and place both hands on the ground in front of your feet. Kick both feet back into a push-up position, do one push-up, then jump both feet back up to your hands and explode straight up into a jump, reaching overhead.", cue: "Land soft, chest up immediately — don't let the next rep start from a slump." },
+  { ath: "power", p: "gripAthletic", lvl: 3, name: "Broad jump series", req: [], reps: "3 jumps × 3 sets", mus: ["glutes", "quads", "calves", "hamstrings"], how: "Stand with feet shoulder-width apart. Jump forward as far as you can, and the instant you land, without resetting or pausing, jump forward again — three jumps in a row, sticking only the final landing.", cue: "Absorb and fire immediately on jumps one and two — only the last landing gets to be quiet and controlled." },
+  { ath: "power", p: "gripAthletic", lvl: 4, name: "Bounding skips", req: [], reps: "4 × 20m", mus: ["glutes", "hamstrings", "quads", "calves"], how: "Jog a few steps to get moving, then start driving one knee up high and pushing hard off the ground with the opposite leg, covering as much distance per stride as you can — an exaggerated, skipping bound down a straight line.", cue: "Distance per stride, not speed — hang in the air, then reach for the next stride." },
+  { ath: "elastic", p: "gripAthletic", lvl: 3, name: "Single-leg lateral hops", req: [], reps: "3 × 8 / side", mus: ["calves", "quads", "glutes"], how: "Stand balanced on one leg. Hop sideways a short distance and land softly back on the same leg, then hop back to the start — small, quick, controlled hops staying on that one leg for the whole set before switching sides.", cue: "Quiet landings, ankle doing the work — bigger hops only once every landing is silent." },
+  { ath: "elastic", p: "gripAthletic", lvl: 4, name: "Single-leg pogo hops", req: [], reps: "2 × 15 / side", mus: ["calves"], how: "Stand balanced on one leg with the other lifted slightly off the ground. Bounce up and down on the ball of that one foot with a nearly straight knee, using your ankle like a spring, small and quick.", cue: "Stiff ankle, minimal ground time — the hardest version of the corner's easiest drill." },
+  { ath: "skill", p: "gripAthletic", lvl: 3, name: "Single-leg hop-to-stick", req: [], reps: "5 / side", mus: ["quads", "glutes", "calves"], how: "Stand balanced on one leg. Hop forward a comfortable distance and land on that same leg, freezing completely still for two full seconds before the next hop — the other foot never touches down.", cue: "The stick is the exercise — a wobble or a tapping foot means the distance was too far." },
+  { ath: "skill", p: "gripAthletic", lvl: 4, name: "Bear crawl with shoulder taps", req: [], reps: "6 / side", mus: ["abs", "shoulders", "quads"], how: "Get into a bear crawl position — hands under shoulders, knees hovering just off the ground. Without letting your hips rotate or your knees touch down, lift one hand and tap the opposite shoulder, then place it back down and repeat on the other side.", cue: "Stillness in the hips is the whole test — the tap itself should feel almost boring." },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -427,7 +437,7 @@ function StationPlate({ num, eyebrow, ex, setsText, canSwap, onSwap, guideOpen, 
             Done
           </button>
         ) : (
-          <div className="disp" style={{ borderLeft: `2px solid ${T.line}`, display: "grid", placeItems: "center", padding: "0 10px", color: T.green, fontWeight: 800, fontSize: 13 }}>
+          <div className="disp done-check-pop" style={{ borderLeft: `2px solid ${T.line}`, display: "grid", placeItems: "center", padding: "0 10px", color: T.green, fontWeight: 800, fontSize: 13 }}>
             ✓ at {Math.floor(doneAt / 60)}:{String(doneAt % 60).padStart(2, "0")}
           </div>
         ))}
@@ -485,7 +495,7 @@ function StationPlate({ num, eyebrow, ex, setsText, canSwap, onSwap, guideOpen, 
         </button>
       </div>
       {guideOpen && (
-        <div style={{ borderTop: `3px solid ${T.greenDark}`, padding: "12px 14px" }}>
+        <div className="panel-reveal" style={{ borderTop: `3px solid ${T.greenDark}`, padding: "12px 14px" }}>
           <div className="disp" style={{ fontSize: 12.5, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: T.green }}>
             Set up
           </div>
@@ -517,18 +527,22 @@ function StationPlate({ num, eyebrow, ex, setsText, canSwap, onSwap, guideOpen, 
   );
 }
 
-export default function FitnessCornerGenerator() {
+function FitnessCornerGenerator() {
   const [step, setStep] = useState(0);
   const [eq, setEq] = useState(["highBar", "parallelBars", "situpBench", "bench"]);
   const [level, setLevel] = useState(2);
   const [focus, setFocus] = useState("full");
   const [sets, setSets] = useState(3);
-  const [format, setFormat] = useState("straight");
+  const [format, setFormat] = useState("circuit");
+  const [warmup, setWarmup] = useState(true);
   const [power, setPower] = useState(false);
   const [mobility, setMobility] = useState(true);
   const [swaps, setSwaps] = useState({}); // pattern-index -> offset
   const [adjs, setAdjs] = useState({}); // pattern-index -> level delta
   const [guides, setGuides] = useState({}); // pattern-index -> guide open
+  const [warmupOpen, setWarmupOpen] = useState(false);
+  const [cooldownOpen, setCooldownOpen] = useState(false);
+  const [athleticOpen, setAthleticOpen] = useState(false);
 
   // ---- Session logging prototype (persistent via window.storage) ----
   const hasStorage = typeof window !== "undefined" && !!window.storage;
@@ -620,6 +634,11 @@ export default function FitnessCornerGenerator() {
     return { session: s, athletic: a };
   }, [focus, level, eq, adjs, power, patternMem]);
 
+  useEffect(() => {
+    if (!athletic.some((s) => !s.missing)) return;
+    if (athletic.every((s, j) => s.missing || done["a" + j] != null)) setAthleticOpen(false);
+  }, [done, athletic]);
+
   const hitMuscles = useMemo(() => {
     const hit = new Set();
     const collect = (arr, keyFn) =>
@@ -656,6 +675,12 @@ export default function FitnessCornerGenerator() {
       ? "Rest 90–120s between sets. Complete all sets of one station before moving on."
       : "Circuit: one set at each station in order, loop back to station 1, repeat until all rounds are done. Rest 60–90s between rounds only.";
 
+  // Warm-up/cool-down adapt to what the session actually trains today.
+  // "Full body" naturally trips both (it spans upper + lower patterns) — full coverage by construction, not a special case.
+  const needsUpperPrep = FOCUS[focus].patterns.some((p) => ["verticalPush", "verticalPull", "horizontalPush", "horizontalPull"].includes(p));
+  const needsLowerPrep = FOCUS[focus].patterns.some((p) => ["kneeDominant", "hipDominant", "gripAthletic"].includes(p));
+  const needsGripPrep = FOCUS[focus].patterns.includes("gripAthletic");
+
   return (
     <div style={{ minHeight: "100vh", background: T.bg, color: T.ink, fontFamily: "'Barlow', system-ui, sans-serif" }}>
       <style>{`
@@ -663,7 +688,14 @@ export default function FitnessCornerGenerator() {
         .disp { font-family: 'Barlow Condensed', sans-serif; }
         button { cursor: pointer; }
         button:focus-visible { outline: 3px solid ${T.yellow}; outline-offset: 2px; }
-        @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+        @keyframes panelReveal { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes doneCheckPop { from { opacity: 0; transform: scale(0.7); } to { opacity: 1; transform: scale(1); } }
+        .panel-reveal { animation: panelReveal 0.18s ease-out; }
+        .done-check-pop { display: inline-block; animation: doneCheckPop 0.22s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        @media (prefers-reduced-motion: reduce) {
+          * { transition: none !important; }
+          .panel-reveal, .done-check-pop { animation: none !important; }
+        }
       `}</style>
 
       {/* ---------- Signage header ---------- */}
@@ -839,7 +871,7 @@ export default function FitnessCornerGenerator() {
             </Field>
             <Field label="Format">
               <Segmented
-                options={["Straight sets", "Circuit"]}
+                options={["Circuit", "Straight sets"]}
                 value={format === "straight" ? "Straight sets" : "Circuit"}
                 onChange={(v) => setFormat(v === "Circuit" ? "circuit" : "straight")}
               />
@@ -849,16 +881,25 @@ export default function FitnessCornerGenerator() {
                   : "Everything at a fitness corner is steps apart — so do one set at each apparatus, loop back to the first, and repeat until all rounds are done. Same total work, ~40% shorter session, higher heart rate."}
               </div>
             </Field>
-            <Field label="Athletic block — optional">
-              <Segmented options={["Skip", "Include"]} value={power ? "Include" : "Skip"} onChange={(v) => setPower(v === "Include")} />
+            <Field label="Warm-up — optional">
+              <Toggle on={warmup} onChange={setWarmup} />
               <div style={{ fontSize: 13, color: T.steel, marginTop: 8, lineHeight: 1.45 }}>
-                One movement-skill drill (crawls, traverses, balance), one max-effort power drill (jumps, bounds), and one reactive drill (pogo hops, toe taps, line hops). Sits right after the warm-up, while you're fresh — power quality dies when you're fatigued.
+                Dynamic movement prep — jog, arm circles, squat-to-stand, heel/toe walks, World's Greatest Stretch. On by default; skip only if you've already warmed up elsewhere.
+              </div>
+            </Field>
+            <Field label="Athletic block — optional">
+              <Toggle on={power} onChange={setPower} />
+              <div style={{ fontSize: 13, color: T.steel, marginTop: 8, lineHeight: 1.5 }}>
+                <div><strong style={{ color: T.ink }}>1.</strong> Movement-skill drill — crawls, traverses, balance</div>
+                <div><strong style={{ color: T.ink }}>2.</strong> Max-effort power drill — jumps, bounds</div>
+                <div><strong style={{ color: T.ink }}>3.</strong> Reactive drill — pogo hops, toe taps, line hops</div>
+                <div style={{ marginTop: 6 }}>Sits right after the warm-up, while you're fresh — power quality dies when you're fatigued.</div>
               </div>
             </Field>
             <Field label="Cool-down flow — optional">
-              <Segmented options={["Skip", "Include"]} value={mobility ? "Include" : "Skip"} onChange={(v) => setMobility(v === "Include")} />
+              <Toggle on={mobility} onChange={setMobility} />
               <div style={{ fontSize: 13, color: T.steel, marginTop: 8, lineHeight: 1.45 }}>
-                Static flexibility holds — hangs, deep squat, hip flexors, calves — done after training while muscles are warm. Dynamic prep (leg swings, World's Greatest Stretch) is built into the warm-up automatically.
+                Static flexibility holds — hangs, deep squat, hip flexors, calves — done after training while muscles are warm.
               </div>
             </Field>
             <button
@@ -889,11 +930,11 @@ export default function FitnessCornerGenerator() {
                 </button>
                 {(() => {
                   const stMin = Math.round(FOCUS[focus].patterns.length * sets * (format === "straight" ? 1.8 : 1.1));
-                  const est = 5 + (power ? 7 : 0) + stMin + (mobility ? 6 : 0);
+                  const est = (warmup ? 5 : 0) + (power ? 7 : 0) + stMin + (mobility ? 6 : 0);
                   return (
                     <div style={{ fontSize: 12.5, color: T.steel, marginTop: 6, textAlign: "center" }}>
                       One clock for the whole session — tap ✓ as you finish each block. Rough guide: ~{est} min total
-                      (5 warm-up{power ? ", 7 athletic" : ""}, ~{stMin} stations{mobility ? ", 6 cool-down" : ""}).
+                      ({warmup ? "5 warm-up, " : ""}{power ? "7 athletic, " : ""}~{stMin} stations{mobility ? ", 6 cool-down" : ""}).
                     </div>
                   );
                 })()}
@@ -919,7 +960,7 @@ export default function FitnessCornerGenerator() {
                         const t = done[key];
                         const prevDone = r === 0 || done["r" + (r - 1)] != null;
                         return t != null ? (
-                          <div key={key} className="disp" style={{ flex: 1, textAlign: "center", padding: "9px 0", borderRadius: 8, background: T.green, color: "#fff", fontWeight: 800, fontSize: 13 }}>
+                          <div key={key} className="disp done-check-pop" style={{ flex: 1, textAlign: "center", padding: "9px 0", borderRadius: 8, background: T.green, color: "#fff", fontWeight: 800, fontSize: 13 }}>
                             ✓ {fmtT(t)}
                           </div>
                         ) : (
@@ -998,48 +1039,80 @@ export default function FitnessCornerGenerator() {
                 </div>
               </div>
             )}
+            {warmup && (
             <div style={{ background: T.card, border: `2px solid ${T.line}`, borderRadius: 10, padding: "12px 14px", marginBottom: 14 }}>
               <div style={{ display: "flex", alignItems: "center" }}>
-                <div className="disp" style={{ flex: 1, fontWeight: 800, fontSize: 15, textTransform: "uppercase", letterSpacing: "0.08em", color: T.green }}>
+                <button
+                  onClick={() => setWarmupOpen((o) => !o)}
+                  className="disp"
+                  style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, background: "transparent", border: "none", padding: 0, textAlign: "left", cursor: "pointer", fontWeight: 800, fontSize: 15, textTransform: "uppercase", letterSpacing: "0.08em", color: T.green }}
+                >
+                  <span style={{ display: "inline-block", transition: "transform 0.15s", transform: warmupOpen ? "rotate(90deg)" : "rotate(0deg)" }}>▸</span>
                   Warm-up · 5 min · dynamic
-                </div>
+                </button>
                 {phase === "running" && (done["warmup"] == null ? (
-                  <button onClick={() => markDone("warmup")} className="disp" style={{ background: T.yellow, color: T.greenDark, border: "none", borderRadius: 6, padding: "5px 12px", fontWeight: 800, fontSize: 12, textTransform: "uppercase" }}>✓ Done</button>
+                  <button onClick={() => { markDone("warmup"); setWarmupOpen(false); }} className="disp" style={{ background: T.yellow, color: T.greenDark, border: "none", borderRadius: 6, padding: "5px 12px", fontWeight: 800, fontSize: 12, textTransform: "uppercase" }}>✓ Done</button>
                 ) : (
-                  <span className="disp" style={{ color: T.green, fontWeight: 800, fontSize: 13 }}>✓ at {fmtT(done["warmup"])}</span>
+                  <span className="disp done-check-pop" style={{ color: T.green, fontWeight: 800, fontSize: 13 }}>✓ at {fmtT(done["warmup"])}</span>
                 ))}
               </div>
-              <div style={{ fontSize: 12.5, color: T.steel, marginTop: 2 }}>
-                Movement, not holds — rehearse the positions, raise the temperature. Save long stretches for after.
-              </div>
-              {[
-                { n: "Easy jog or brisk walk", d: "to the corner", h: null },
-                { n: "Arm circles + leg swings", d: "10 each way / leg", h: "Big slow arm circles both directions, then swing each leg front-to-back and side-to-side, holding something for balance." },
-                { n: "Squat-to-stand", d: "5 reps", h: "Bend down and grab your toes with straight-ish legs, then pull your hips down into a deep squat with your chest up, then straighten your legs back to the toe-grab. That's one rep." },
-                { n: "Heel walks + toe walks", d: "15m each", h: "Walk on your heels with your toes lifted high for 15 metres, then walk up on your tiptoes for 15 metres. Wakes up the shins, calves and ankles before they take load." },
-                { n: "World's Greatest Stretch", d: "3 / side", h: "Step into a long lunge — say right foot forward — and place both hands on the ground inside your front foot. The arm on the same side as the front leg is the one that moves: keep the left hand planted and sweep your right arm up toward the sky, opening your chest toward your front-leg side and following the hand with your eyes. Bring it down, then swap sides — left foot forward, left arm up. Hip flexors, hamstrings, and upper-back rotation in one move." },
-                { n: "Easy bar hang", d: "15s", h: "If there's a bar — a relaxed hang to wake up the grip and shoulders. Skip if not." },
-              ].map((m, j) => (
-                <div key={j} style={{ marginTop: j === 0 ? 8 : 8 }}>
-                  <div style={{ fontSize: 14, color: T.ink, fontWeight: 600 }}>
-                    {j + 1}. {m.n} <span style={{ color: T.green, fontWeight: 700 }}>— {m.d}</span>
+              {warmupOpen && (
+                <div className="panel-reveal">
+                  <div style={{ fontSize: 12.5, color: T.steel, marginTop: 8 }}>
+                    Movement, not holds — rehearse the positions, raise the temperature. Save long stretches for after.
                   </div>
-                  {m.h && <div style={{ fontSize: 12.5, color: T.steel, marginTop: 2, lineHeight: 1.45 }}>{m.h}</div>}
+                  {[
+                    { n: "Easy jog or brisk walk", d: "to the corner", h: null, show: true },
+                    { n: "Arm circles", d: "10 each way", h: "Stand tall and make big, slow circles with straight arms — 10 forward, then 10 backward.", show: needsUpperPrep },
+                    { n: "Leg swings", d: "10 / leg, each direction", h: "Hold something for balance and swing one leg front-to-back 10 times, then side-to-side 10 times, then switch legs.", show: needsLowerPrep },
+                    { n: "Wrist circles + stretch", d: "10 each way + 15s", h: "Circle both wrists 10 times each direction. Then press your palms together in front of your chest with fingers pointing up, and lower your hands toward your waist, keeping palms together, until you feel a stretch across both forearms.", show: needsUpperPrep || needsGripPrep },
+                    { n: "Squat-to-stand", d: "5 reps", h: "Bend down and grab your toes with straight-ish legs, then pull your hips down into a deep squat with your chest up, then straighten your legs back to the toe-grab. That's one rep.", show: needsLowerPrep },
+                    { n: "Heel walks + toe walks", d: "15m each", h: "Walk on your heels with your toes lifted high for 15 metres, then walk up on your tiptoes for 15 metres. Wakes up the shins, calves and ankles before they take load.", show: needsLowerPrep },
+                    { n: "Tibialis raise (wall lean)", d: "10–12 reps", h: "Stand with your back against a wall or post and walk your heels about 30cm out, so you're leaning back slightly. Keeping your legs straight, lift your toes and the front of your feet as high as you can, then lower. A light prep set — the full working set shows up later if your session trains this pattern.", show: needsLowerPrep },
+                    { n: "World's Greatest Stretch", d: "3 / side", h: "Step into a long lunge — say right foot forward — and place both hands on the ground inside your front foot. The arm on the same side as the front leg is the one that moves: keep the left hand planted and sweep your right arm up toward the sky, opening your chest toward your front-leg side and following the hand with your eyes. Bring it down, then swap sides — left foot forward, left arm up. Hip flexors, hamstrings, and upper-back rotation in one move.", show: true },
+                    { n: "Easy bar hang", d: "15s", h: "If there's a bar — a relaxed hang to wake up the grip and shoulders. Skip if not.", show: needsUpperPrep },
+                  ].filter((m) => m.show).map((m, j) => (
+                    <div key={j} style={{ marginTop: j === 0 ? 8 : 8 }}>
+                      <div style={{ fontSize: 14, color: T.ink, fontWeight: 600 }}>
+                        {j + 1}. {m.n} <span style={{ color: T.green, fontWeight: 700 }}>— {m.d}</span>
+                      </div>
+                      {m.h && <div style={{ fontSize: 12.5, color: T.steel, marginTop: 2, lineHeight: 1.45 }}>{m.h}</div>}
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
+            )}
 
             {power && athletic.some((s) => !s.missing) && (
               <>
-                <div style={{ background: T.card, border: `2px solid ${T.green}`, borderRadius: 10, padding: "10px 14px", marginBottom: 12 }}>
-                  <div className="disp" style={{ fontWeight: 800, fontSize: 15, textTransform: "uppercase", letterSpacing: "0.08em", color: T.green }}>
-                    Athletic block · while fresh
+                <div style={{ background: T.card, border: `2px solid ${T.green}`, borderRadius: 10, padding: "10px 14px", marginBottom: athleticOpen ? 12 : 14 }}>
+                  <div style={{ display: "flex", alignItems: "center" }}>
+                    <button
+                      onClick={() => setAthleticOpen((o) => !o)}
+                      className="disp"
+                      style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, background: "transparent", border: "none", padding: 0, textAlign: "left", cursor: "pointer", fontWeight: 800, fontSize: 15, textTransform: "uppercase", letterSpacing: "0.08em", color: T.green }}
+                    >
+                      <span style={{ display: "inline-block", transition: "transform 0.15s", transform: athleticOpen ? "rotate(90deg)" : "rotate(0deg)" }}>▸</span>
+                      Athletic block · while fresh
+                    </button>
+                    {phase === "running" && (() => {
+                      const total = athletic.filter((s) => !s.missing).length;
+                      const doneCount = athletic.filter((s, j) => !s.missing && done["a" + j] != null).length;
+                      return (
+                        <span className="disp done-check-pop" key={doneCount} style={{ color: T.green, fontWeight: 800, fontSize: 13 }}>
+                          {doneCount}/{total} ✓
+                        </span>
+                      );
+                    })()}
                   </div>
-                  <div style={{ fontSize: 13, color: T.steel, marginTop: 2, lineHeight: 1.45 }}>
-                    Three jobs, one block: a movement-skill primer to wake up coordination, one max-effort power drill, and one springy reactive drill for footwork and ankle stiffness. All done fresh — stop each drill while reps are still crisp; this is about speed and precision, never fatigue.
-                  </div>
+                  {athleticOpen && (
+                    <div className="panel-reveal" style={{ fontSize: 13, color: T.steel, marginTop: 8, lineHeight: 1.45 }}>
+                      Three jobs, one block: a movement-skill primer to wake up coordination, one max-effort power drill, and one springy reactive drill for footwork and ankle stiffness. All done fresh — stop each drill while reps are still crisp; this is about speed and precision, never fatigue.
+                    </div>
+                  )}
                 </div>
-                {athletic.map((s, j) => {
+                {athleticOpen && athletic.map((s, j) => {
                   if (s.missing) return null;
                   const k = "a" + j;
                   const off = swaps[k] || 0;
@@ -1072,8 +1145,8 @@ export default function FitnessCornerGenerator() {
             )}
 
             <div style={{ fontSize: 13.5, color: T.steel, marginBottom: 6 }}>{restLine}</div>
-            <div style={{ fontSize: 13.5, color: T.green, fontWeight: 600, marginBottom: 14 }}>
-              Progression standard: when you can complete every set at the top of an exercise's rep range with perfect form and control — two sessions in a row — promote that pattern one level with "Harder +". Until then, win by one more rep, one more second, or a slower tempo.
+            <div style={{ fontSize: 13.5, color: T.steel, marginBottom: 14, lineHeight: 1.45 }}>
+              <span className="disp" style={{ fontWeight: 800, color: T.green, textTransform: "uppercase", letterSpacing: "0.04em" }}>Progression standard:</span> when you can complete every set at the top of an exercise's rep range with perfect form and control — two sessions in a row — promote that pattern one level with "Harder +". Until then, win by one more rep, one more second, or a slower tempo.
             </div>
 
             {session.map((s, i) => {
@@ -1224,42 +1297,68 @@ export default function FitnessCornerGenerator() {
             {mobility && (
               <div style={{ background: T.card, border: `2px solid ${T.line}`, borderRadius: 10, padding: "12px 14px", marginTop: 12 }}>
                 <div style={{ display: "flex", alignItems: "center" }}>
-                  <div className="disp" style={{ flex: 1, fontWeight: 800, fontSize: 15, textTransform: "uppercase", letterSpacing: "0.08em", color: T.green }}>
+                  <button
+                    onClick={() => setCooldownOpen((o) => !o)}
+                    className="disp"
+                    style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, background: "transparent", border: "none", padding: 0, textAlign: "left", cursor: "pointer", fontWeight: 800, fontSize: 15, textTransform: "uppercase", letterSpacing: "0.08em", color: T.green }}
+                  >
+                    <span style={{ display: "inline-block", transition: "transform 0.15s", transform: cooldownOpen ? "rotate(90deg)" : "rotate(0deg)" }}>▸</span>
                     Cool-down flow · 5–8 min · static
-                  </div>
+                  </button>
                   {phase === "running" && (done["cooldown"] == null ? (
-                    <button onClick={() => markDone("cooldown")} className="disp" style={{ background: T.yellow, color: T.greenDark, border: "none", borderRadius: 6, padding: "5px 12px", fontWeight: 800, fontSize: 12, textTransform: "uppercase" }}>✓ Done</button>
+                    <button onClick={() => { markDone("cooldown"); setCooldownOpen(false); }} className="disp" style={{ background: T.yellow, color: T.greenDark, border: "none", borderRadius: 6, padding: "5px 12px", fontWeight: 800, fontSize: 12, textTransform: "uppercase" }}>✓ Done</button>
                   ) : (
-                    <span className="disp" style={{ color: T.green, fontWeight: 800, fontSize: 13 }}>✓ at {fmtT(done["cooldown"])}</span>
+                    <span className="disp done-check-pop" style={{ color: T.green, fontWeight: 800, fontSize: 13 }}>✓ at {fmtT(done["cooldown"])}</span>
                   ))}
                 </div>
-                <div style={{ fontSize: 12.5, color: T.steel, marginTop: 2 }}>
-                  Long holds on warm muscles — this is where flexibility is actually built.
-                </div>
-                {[
-                  eq.includes("highBar") || eq.includes("monkeyBars")
-                    ? { n: "Dead hang", d: "30–60s", h: "Grab the bar and just hang with straight arms, feet off the ground. Let your shoulders relax up toward your ears and breathe slowly — this decompresses the spine." }
-                    : { n: "Standing forward fold", d: "60s", h: "Stand with feet hip-width, bend your knees slightly, and fold forward at the hips, letting your head and arms hang heavy toward the ground. Sway gently." },
-                  { n: "Deep squat hold", d: "60s", h: "Squat all the way down until your bottom is near your heels, feet flat on the ground about shoulder width. Put your elbows inside your knees and gently press them outward. Hold and breathe." },
-                  eq.includes("parallelBars") || eq.includes("lowBar")
-                    ? { n: "Supported hamstring hinge", d: "60s", h: "Hold the bar with both hands at arm's length and step back. Keeping your back flat and knees almost straight, push your hips backward until you feel a stretch down the back of your thighs." }
-                    : { n: "Supported hamstring hinge", d: "60s", h: "Put both hands on a bench or ledge and step back. Keeping your back flat and knees almost straight, push your hips backward until the back of your thighs stretches." },
-                  eq.includes("bench")
-                    ? { n: "Couch stretch", d: "30–45s / side", h: "Kneel facing away from the bench and place the top of one foot up on its edge behind you, that knee on the ground, other foot planted in front. Tuck your tailbone and lift your chest tall until you feel a deep stretch down the front of the back leg's hip and thigh." }
-                    : { n: "Hip flexor stretch", d: "30s / side", h: "Kneel on one knee like a marriage proposal, other foot flat in front. Tuck your tailbone under and shift your whole body slightly forward until you feel a stretch down the front of the hip on the kneeling side." },
-                  { n: "Calf stretch", d: "30s / side, ×2", h: "Hands against a post or wall, step one foot back with the heel down and that leg straight — hold 30s. Then bend that back knee slightly, heel still down, to move the stretch lower into the calf — hold another 30s. Switch legs." },
-                  eq.includes("bench")
-                    ? { n: "Pigeon stretch (bench)", d: "30–45s / side", h: "Stand facing the bench and lay one shin sideways along the top of it, knee and foot both resting on the bench. Keep your back leg straight behind you and lean your chest gently forward over the front shin until the outside of that hip stretches." }
-                    : { n: "Pigeon stretch (floor)", d: "30–45s / side", h: "Sit and cross one ankle over the opposite knee in a figure-4 shape, then hug the bottom knee toward your chest until the outside of the crossed leg's hip stretches." },
-                  { n: "Pancake or butterfly stretch", d: "60s · optional", h: "Sit with your legs spread wide (pancake) or with the soles of your feet pressed together, knees out (butterfly). Keep your back long and lean your chest forward until the inner thighs stretch." },
-                ].map((m, j) => (
-                  <div key={j} style={{ marginTop: j === 0 ? 8 : 10 }}>
-                    <div style={{ fontSize: 14, color: T.ink, fontWeight: 600 }}>
-                      {j + 1}. {m.n} <span style={{ color: T.green, fontWeight: 700 }}>— {m.d}</span>
+                {cooldownOpen && (
+                  <div className="panel-reveal">
+                    <div style={{ fontSize: 12.5, color: T.steel, marginTop: 8 }}>
+                      Long holds on warm muscles — this is where flexibility is actually built.
                     </div>
-                    <div style={{ fontSize: 12.5, color: T.steel, marginTop: 2, lineHeight: 1.45 }}>{m.h}</div>
+                    {[
+                      {
+                        ...(eq.includes("highBar") || eq.includes("monkeyBars")
+                          ? { n: "Dead hang", d: "30–60s", h: "Grab the bar and just hang with straight arms, feet off the ground. Let your shoulders relax up toward your ears and breathe slowly — this decompresses the spine." }
+                          : { n: "Cross-body shoulder stretch", d: "30s / side", h: "Stand tall and bring one straight arm across the front of your body at chest height. Use your other forearm to gently press it closer to your chest, then switch sides." }),
+                        show: needsUpperPrep,
+                      },
+                      { n: "Standing chest stretch", d: "30s", h: "Stand tall, clasp your hands together behind your lower back, and straighten your arms. Lift your chest and gently raise your clasped hands away from your body until you feel a stretch across the front of your shoulders and chest.", show: needsUpperPrep },
+                      { n: "Overhead triceps stretch", d: "30s / side", h: "Reach one arm straight up, then bend that elbow so your hand drops behind your head. Use your other hand to gently press on that elbow, then switch sides.", show: needsUpperPrep },
+                      { n: "Wrist + forearm stretch", d: "20s / side, both ways", h: "Hold one arm straight out in front, palm up. Use your other hand to gently pull the fingers back toward you, then flip the palm down and gently pull the fingers down and in, feeling the stretch on both sides of the forearm before switching arms.", show: needsUpperPrep || needsGripPrep },
+                      { n: "Deep squat hold", d: "60s", h: "Squat all the way down until your bottom is near your heels, feet flat on the ground about shoulder width. Put your elbows inside your knees and gently press them outward. Hold and breathe.", show: needsLowerPrep },
+                      {
+                        ...(eq.includes("parallelBars") || eq.includes("lowBar")
+                          ? { n: "Supported hamstring hinge", d: "60s", h: "Hold the bar with both hands at arm's length and step back. Keeping your back flat and knees almost straight, push your hips backward until you feel a stretch down the back of your thighs." }
+                          : eq.includes("bench")
+                            ? { n: "Supported hamstring hinge", d: "60s", h: "Put both hands on a bench or ledge and step back. Keeping your back flat and knees almost straight, push your hips backward until the back of your thighs stretches." }
+                            : { n: "Standing forward fold", d: "60s", h: "Stand with feet hip-width, bend your knees slightly, and fold forward at the hips, letting your head and arms hang heavy toward the ground. Sway gently." }),
+                        show: needsLowerPrep,
+                      },
+                      {
+                        ...(eq.includes("bench")
+                          ? { n: "Couch stretch", d: "30–45s / side", h: "Kneel facing away from the bench and place the top of one foot up on its edge behind you, that knee on the ground, other foot planted in front. Tuck your tailbone and lift your chest tall until you feel a deep stretch down the front of the back leg's hip and thigh." }
+                          : { n: "Hip flexor stretch", d: "30s / side", h: "Kneel on one knee like a marriage proposal, other foot flat in front. Tuck your tailbone under and shift your whole body slightly forward until you feel a stretch down the front of the hip on the kneeling side." }),
+                        show: needsLowerPrep,
+                      },
+                      { n: "Calf stretch", d: "30s / side, ×2", h: "Hands against a post or wall, step one foot back with the heel down and that leg straight — hold 30s. Then bend that back knee slightly, heel still down, to move the stretch lower into the calf — hold another 30s. Switch legs.", show: needsLowerPrep },
+                      {
+                        ...(eq.includes("bench")
+                          ? { n: "Pigeon stretch (bench)", d: "30–45s / side", h: "Stand facing the bench and lay one shin sideways along the top of it, knee and foot both resting on the bench. Keep your back leg straight behind you and lean your chest gently forward over the front shin until the outside of that hip stretches." }
+                          : { n: "Pigeon stretch (floor)", d: "30–45s / side", h: "Sit and cross one ankle over the opposite knee in a figure-4 shape, then hug the bottom knee toward your chest until the outside of the crossed leg's hip stretches." }),
+                        show: needsLowerPrep,
+                      },
+                      { n: "Pancake or butterfly stretch", d: "60s · optional", h: "Sit with your legs spread wide (pancake) or with the soles of your feet pressed together, knees out (butterfly). Keep your back long and lean your chest forward until the inner thighs stretch.", show: needsLowerPrep },
+                    ].filter((m) => m.show).map((m, j) => (
+                      <div key={j} style={{ marginTop: j === 0 ? 8 : 10 }}>
+                        <div style={{ fontSize: 14, color: T.ink, fontWeight: 600 }}>
+                          {j + 1}. {m.n} <span style={{ color: T.green, fontWeight: 700 }}>— {m.d}</span>
+                        </div>
+                        <div style={{ fontSize: 12.5, color: T.steel, marginTop: 2, lineHeight: 1.45 }}>{m.h}</div>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                )}
               </div>
             )}
 
@@ -1442,3 +1541,28 @@ function Segmented({ options, value, onChange }) {
     </div>
   );
 }
+
+function Toggle({ on, onChange, onLabel = "Include", offLabel = "Skip" }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <button
+        onClick={() => onChange(!on)}
+        aria-pressed={on}
+        style={{
+          width: 46, height: 26, borderRadius: 13, flexShrink: 0, padding: 0, position: "relative",
+          border: `2px solid ${on ? T.green : T.line}`, background: on ? T.green : T.card,
+          transition: "background 0.15s, border-color 0.15s",
+        }}
+      >
+        <span style={{
+          position: "absolute", top: 2, left: on ? 22 : 2, width: 18, height: 18, borderRadius: "50%",
+          background: on ? "#fff" : T.steel, transition: "left 0.15s ease-out",
+        }} />
+      </button>
+      <span className="disp" style={{ fontWeight: 700, fontSize: 14, textTransform: "uppercase", letterSpacing: "0.04em", color: on ? T.green : T.steel }}>
+        {on ? onLabel : offLabel}
+      </span>
+    </div>
+  );
+}
+

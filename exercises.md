@@ -1168,3 +1168,103 @@ yet built in (use this to stage new exercise ideas before they're ready).
 - cue: Accuracy over distance — a stuck landing from close beats a wobble from far.
 - status: active
 
+### High knees + toe taps (bench)
+- athletic: elastic
+- level: 1
+- requires: bench
+- reps: 2 × 20s
+- muscles: quads, calves, abs
+- how: Stand facing the end of the bench, about half a step back. Drive your knees up quickly one at a time, tapping the top of the bench lightly with the ball of each foot before it comes back down, alternating in a light running rhythm.
+- cue: Quick and light — the tap is a touch, not a stomp.
+- status: active
+
+### Fast step-ups (step)
+- athletic: power
+- level: 2
+- requires: step
+- reps: 10 / leg
+- muscles: quads, glutes, calves
+- how: Stand facing the platform. Drive one foot up onto it and push through that leg to snap your whole body up fast, then step straight back down and immediately drive up again — same leg leads every rep, then switch.
+- cue: Speed off the platform is the point — this is the explosive cousin of the slow step-up.
+- status: active
+
+### Fast step-ups (bench)
+- athletic: power
+- level: 2
+- requires: bench
+- reps: 10 / leg
+- muscles: quads, glutes, calves
+- how: Stand facing the bench. Drive one foot up onto it and push through that leg to snap your whole body up fast, then step straight back down and immediately drive up again — same leg leads every rep, then switch.
+- cue: Speed off the bench is the point — this is the explosive cousin of the slow step-up.
+- status: active
+
+### Burpees
+- athletic: power
+- level: 2
+- requires: (none)
+- reps: 8–10
+- muscles: chest, quads, glutes, abs, shoulders
+- how: Stand tall, then squat down and place both hands on the ground in front of your feet. Kick both feet back into a push-up position, do one push-up, then jump both feet back up to your hands and explode straight up into a jump, reaching overhead.
+- cue: Land soft, chest up immediately — don't let the next rep start from a slump.
+- status: active
+
+### Broad jump series
+- athletic: power
+- level: 3
+- requires: (none)
+- reps: 3 jumps × 3 sets
+- muscles: glutes, quads, calves, hamstrings
+- how: Stand with feet shoulder-width apart. Jump forward as far as you can, and the instant you land, without resetting or pausing, jump forward again — three jumps in a row, sticking only the final landing.
+- cue: Absorb and fire immediately on jumps one and two — only the last landing gets to be quiet and controlled.
+- status: active
+
+### Bounding skips
+- athletic: power
+- level: 4
+- requires: (none)
+- reps: 4 × 20m
+- muscles: glutes, hamstrings, quads, calves
+- how: Jog a few steps to get moving, then start driving one knee up high and pushing hard off the ground with the opposite leg, covering as much distance per stride as you can — an exaggerated, skipping bound down a straight line.
+- cue: Distance per stride, not speed — hang in the air, then reach for the next stride.
+- status: active
+
+### Single-leg lateral hops
+- athletic: elastic
+- level: 3
+- requires: (none)
+- reps: 3 × 8 / side
+- muscles: calves, quads, glutes
+- how: Stand balanced on one leg. Hop sideways a short distance and land softly back on the same leg, then hop back to the start — small, quick, controlled hops staying on that one leg for the whole set before switching sides.
+- cue: Quiet landings, ankle doing the work — bigger hops only once every landing is silent.
+- status: active
+
+### Single-leg pogo hops
+- athletic: elastic
+- level: 4
+- requires: (none)
+- reps: 2 × 15 / side
+- muscles: calves
+- how: Stand balanced on one leg with the other lifted slightly off the ground. Bounce up and down on the ball of that one foot with a nearly straight knee, using your ankle like a spring, small and quick.
+- cue: Stiff ankle, minimal ground time — the hardest version of the corner's easiest drill.
+- status: active
+
+### Single-leg hop-to-stick
+- athletic: skill
+- level: 3
+- requires: (none)
+- reps: 5 / side
+- muscles: quads, glutes, calves
+- how: Stand balanced on one leg. Hop forward a comfortable distance and land on that same leg, freezing completely still for two full seconds before the next hop — the other foot never touches down.
+- cue: The stick is the exercise — a wobble or a tapping foot means the distance was too far.
+- status: active
+
+### Bear crawl with shoulder taps
+- athletic: skill
+- level: 4
+- requires: (none)
+- reps: 6 / side
+- muscles: abs, shoulders, quads
+- how: Get into a bear crawl position — hands under shoulders, knees hovering just off the ground. Without letting your hips rotate or your knees touch down, lift one hand and tap the opposite shoulder, then place it back down and repeat on the other side.
+- cue: Stillness in the hips is the whole test — the tap itself should feel almost boring.
+- status: active
+

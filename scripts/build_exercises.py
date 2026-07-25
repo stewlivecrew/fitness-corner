@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
-"""Regenerate the EXERCISES array in index.html and fitness-corner-generator.jsx
+"""Regenerate the EXERCISES array in sandbox.html and fitness-corner-generator.jsx
 from exercises.md. Stdlib only -- no dependencies.
+
+index.html is generated from fitness-corner-generator.jsx (see build_html.py) --
+not a target here. Run this after editing exercises.md, then port any other
+sandbox.html changes into the .jsx and run build_html.py before committing.
 
 Usage: python3 scripts/build_exercises.py
 Run from the repo root (or anywhere; paths below are repo-root-relative).
@@ -11,7 +15,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DOC = ROOT / "exercises.md"
-TARGETS = [ROOT / "index.html", ROOT / "fitness-corner-generator.jsx"]
+TARGETS = [ROOT / "sandbox.html", ROOT / "fitness-corner-generator.jsx"]
 
 FIELD_ORDER = ["athletic", "level", "requires", "reps", "muscles", "how", "cue"]
 JS_KEY = {"athletic": "ath", "level": "lvl", "requires": "req", "reps": "reps",
