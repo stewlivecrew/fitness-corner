@@ -57,6 +57,12 @@ dependencies beyond the CDN scripts.
 - `package.json` / `eslint.config.mjs` — **dev tooling only**, not shipped.
   `npm run release` chains sync → lint → build (the full pre-commit
   checkpoint). Requires Node (dev-time only, see Stack above).
+- `.githooks/pre-commit` — **enforces** `npm run release`; see decision
+  log `[tooling]`. Not optional — a commit touching `sandbox.html` or
+  `exercises.md` cannot land unless this passes.
+- `scripts/install_hooks.sh` — one-time per-clone setup
+  (`git config core.hooksPath .githooks`); already run on this machine.
+  A fresh clone needs this run once before the hook is active.
 - `CLAUDE.md` — this file
 
 **Owner intent:** Not a money project. Pay-once/"cover hosting costs" model
@@ -214,11 +220,14 @@ Exercise entry schema (compiled `EXERCISES` array, generated — read-only):
 
 GitHub Pages: repo `fitness-corner`, `index.html` at root, Pages from
 main branch (Pages requires this exact filename/location to auto-serve).
-Update flow: edit `sandbox.html` during the session → run `npm run
-release` (syncs into `fitness-corner-generator.jsx`, lints it, then
-regenerates `index.html`) → commit → push. Same URL, ~1–2 min propagation.
-localStorage is per-browser-per-device (no sync) — accepted beta
-constraint.
+Update flow: edit `sandbox.html` during the session → commit → push.
+`npm run release` (sync → lint → build) no longer has to be run by hand —
+the `.githooks/pre-commit` hook runs it automatically whenever
+`sandbox.html` or `exercises.md` is staged, and aborts the commit
+entirely if it fails (e.g. a real lint error). Running `npm run release`
+directly is still fine any time you want to check sooner than a commit.
+Same URL, ~1–2 min propagation after push. localStorage is per-browser-
+per-device (no sync) — accepted beta constraint.
 
 ### Content sources & attribution
 
@@ -341,6 +350,19 @@ Format: `[decision] what — why. (supersedes: none unless noted)`
   working patterns here. This doesn't change the zero-build-step
   deployment invariant: Node/ESLint are local dev tooling only, never
   shipped, same spirit as `scripts/build_exercises.py`.
+- [tooling] Added `.githooks/pre-commit` to *enforce* `npm run release`
+  rather than just document it — documentation alone doesn't stop a
+  future session (or a distracted me) from committing a `sandbox.html`
+  change that never got synced/linted/built; a hook makes that
+  structurally impossible instead of relying on memory. Verified both
+  failure modes directly: (1) staged a `sandbox.html`-only change and
+  committed — the hook auto-ran `release` and folded the regenerated
+  `fitness-corner-generator.jsx`/`index.html` into the same commit;
+  (2) staged a deliberately broken `sandbox.html` (undefined variable)
+  and attempted to commit — the hook's lint step caught it and aborted
+  before a commit was created (confirmed via `git log`). `core.hooksPath`
+  is a per-clone git setting, not something a tracked file can force on
+  its own — `scripts/install_hooks.sh` exists because of that gap.
 
 ### Known limitations (honest list)
 

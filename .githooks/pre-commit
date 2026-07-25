@@ -1,0 +1,38 @@
+#!/bin/bash
+# Enforces the sandbox.html -> jsx -> index.html pipeline before any commit
+# can land. See CLAUDE.md Layer 3 > Deployment for the full flow this
+# automates. Activated via `git config core.hooksPath .githooks` (see
+# scripts/install_hooks.sh).
+set -e
+cd "$(git rev-parse --show-toplevel)"
+
+staged=$(git diff --cached --name-only)
+need_release=false
+
+if echo "$staged" | grep -q '^exercises\.md$'; then
+  echo "pre-commit: exercises.md changed -- running scripts/build_exercises.py..."
+  if ! python3 scripts/build_exercises.py; then
+    echo ""
+    echo "pre-commit: build_exercises.py failed -- commit aborted."
+    exit 1
+  fi
+  need_release=true
+fi
+
+if echo "$staged" | grep -q '^sandbox\.html$'; then
+  need_release=true
+fi
+
+if [ "$need_release" = true ]; then
+  echo "pre-commit: running npm run release (sync -> lint -> build)..."
+  if ! npm run release; then
+    echo ""
+    echo "pre-commit: npm run release failed -- commit aborted."
+    echo "Fix the error above, then commit again."
+    exit 1
+  fi
+  git add sandbox.html fitness-corner-generator.jsx index.html
+  echo "pre-commit: synced sandbox.html -> fitness-corner-generator.jsx -> index.html and staged the results."
+fi
+
+exit 0
