@@ -1,46 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>Fitness Corner Workout Generator</title>
-<meta name="description" content="Generate a workout from whatever's at your Singapore fitness corner." />
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
-<style>html,body,#root{margin:0;padding:0;} body{background:#F2F4EF;}</style>
-</head>
-<body>
-<div id="root"></div>
-<script>
-// localStorage-backed shim matching the Claude artifact storage API,
-// so the logging/corners/auto-level features work in any browser.
-window.storage = {
-  async get(key) {
-    const v = localStorage.getItem("fc:" + key);
-    if (v === null) throw new Error("key not found: " + key);
-    return { key, value: v, shared: false };
-  },
-  async set(key, value) {
-    localStorage.setItem("fc:" + key, String(value));
-    return { key, value, shared: false };
-  },
-  async delete(key) {
-    localStorage.removeItem("fc:" + key);
-    return { key, deleted: true, shared: false };
-  },
-  async list(prefix = "") {
-    const keys = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k && k.startsWith("fc:" + prefix)) keys.push(k.slice(3));
-    }
-    return { keys, prefix, shared: false };
-  },
-};
-</script>
-<script type="text/babel" data-presets="react">
-const { useState, useMemo, useEffect, useRef } = React;
+import { useState, useMemo, useEffect, useRef } from "react";
 
 /* ------------------------------------------------------------------ */
 /* DESIGN TOKENS — SG fitness corner vernacular:                       */
@@ -469,7 +427,7 @@ function StationPlate({ num, eyebrow, ex, setsText, canSwap, onSwap, guideOpen, 
             Done
           </button>
         ) : (
-          <div className="disp done-check-pop" style={{ borderLeft: `2px solid ${T.line}`, display: "grid", placeItems: "center", padding: "0 10px", color: T.green, fontWeight: 800, fontSize: 13 }}>
+          <div className="disp" style={{ borderLeft: `2px solid ${T.line}`, display: "grid", placeItems: "center", padding: "0 10px", color: T.green, fontWeight: 800, fontSize: 13 }}>
             ✓ at {Math.floor(doneAt / 60)}:{String(doneAt % 60).padStart(2, "0")}
           </div>
         ))}
@@ -527,7 +485,7 @@ function StationPlate({ num, eyebrow, ex, setsText, canSwap, onSwap, guideOpen, 
         </button>
       </div>
       {guideOpen && (
-        <div className="panel-reveal" style={{ borderTop: `3px solid ${T.greenDark}`, padding: "12px 14px" }}>
+        <div style={{ borderTop: `3px solid ${T.greenDark}`, padding: "12px 14px" }}>
           <div className="disp" style={{ fontSize: 12.5, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: T.green }}>
             Set up
           </div>
@@ -559,7 +517,7 @@ function StationPlate({ num, eyebrow, ex, setsText, canSwap, onSwap, guideOpen, 
   );
 }
 
-function FitnessCornerGenerator() {
+export default function FitnessCornerGenerator() {
   const [step, setStep] = useState(0);
   const [eq, setEq] = useState(["highBar", "parallelBars", "situpBench", "bench"]);
   const [level, setLevel] = useState(2);
@@ -705,14 +663,7 @@ function FitnessCornerGenerator() {
         .disp { font-family: 'Barlow Condensed', sans-serif; }
         button { cursor: pointer; }
         button:focus-visible { outline: 3px solid ${T.yellow}; outline-offset: 2px; }
-        @keyframes panelReveal { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes doneCheckPop { from { opacity: 0; transform: scale(0.7); } to { opacity: 1; transform: scale(1); } }
-        .panel-reveal { animation: panelReveal 0.18s ease-out; }
-        .done-check-pop { display: inline-block; animation: doneCheckPop 0.22s cubic-bezier(0.34, 1.56, 0.64, 1); }
-        @media (prefers-reduced-motion: reduce) {
-          * { transition: none !important; }
-          .panel-reveal, .done-check-pop { animation: none !important; }
-        }
+        @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
       `}</style>
 
       {/* ---------- Signage header ---------- */}
@@ -968,7 +919,7 @@ function FitnessCornerGenerator() {
                         const t = done[key];
                         const prevDone = r === 0 || done["r" + (r - 1)] != null;
                         return t != null ? (
-                          <div key={key} className="disp done-check-pop" style={{ flex: 1, textAlign: "center", padding: "9px 0", borderRadius: 8, background: T.green, color: "#fff", fontWeight: 800, fontSize: 13 }}>
+                          <div key={key} className="disp" style={{ flex: 1, textAlign: "center", padding: "9px 0", borderRadius: 8, background: T.green, color: "#fff", fontWeight: 800, fontSize: 13 }}>
                             ✓ {fmtT(t)}
                           </div>
                         ) : (
@@ -1055,7 +1006,7 @@ function FitnessCornerGenerator() {
                 {phase === "running" && (done["warmup"] == null ? (
                   <button onClick={() => markDone("warmup")} className="disp" style={{ background: T.yellow, color: T.greenDark, border: "none", borderRadius: 6, padding: "5px 12px", fontWeight: 800, fontSize: 12, textTransform: "uppercase" }}>✓ Done</button>
                 ) : (
-                  <span className="disp done-check-pop" style={{ color: T.green, fontWeight: 800, fontSize: 13 }}>✓ at {fmtT(done["warmup"])}</span>
+                  <span className="disp" style={{ color: T.green, fontWeight: 800, fontSize: 13 }}>✓ at {fmtT(done["warmup"])}</span>
                 ))}
               </div>
               <div style={{ fontSize: 12.5, color: T.steel, marginTop: 2 }}>
@@ -1279,7 +1230,7 @@ function FitnessCornerGenerator() {
                   {phase === "running" && (done["cooldown"] == null ? (
                     <button onClick={() => markDone("cooldown")} className="disp" style={{ background: T.yellow, color: T.greenDark, border: "none", borderRadius: 6, padding: "5px 12px", fontWeight: 800, fontSize: 12, textTransform: "uppercase" }}>✓ Done</button>
                   ) : (
-                    <span className="disp done-check-pop" style={{ color: T.green, fontWeight: 800, fontSize: 13 }}>✓ at {fmtT(done["cooldown"])}</span>
+                    <span className="disp" style={{ color: T.green, fontWeight: 800, fontSize: 13 }}>✓ at {fmtT(done["cooldown"])}</span>
                   ))}
                 </div>
                 <div style={{ fontSize: 12.5, color: T.steel, marginTop: 2 }}>
@@ -1491,9 +1442,3 @@ function Segmented({ options, value, onChange }) {
     </div>
   );
 }
-
-const root = ReactDOM.createRoot(document.getElementById("root"));
-root.render(<FitnessCornerGenerator />);
-</script>
-</body>
-</html>
