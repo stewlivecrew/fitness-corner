@@ -1,0 +1,30 @@
+{
+  "name": "fitness-corner",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Dev tooling only (lint + build scripts). The deployed app is a static index.html with zero runtime dependencies.",
+  "scripts": {
+    "sync": "python3 scripts/sync_jsx.py",
+    "lint": "eslint fitness-corner-generator.jsx",
+    "build": "python3 scripts/build_html.py",
+    "release": "npm run sync && npm run lint && npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/stewlivecrew/fitness-corner.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/stewlivecrew/fitness-corner/issues"
+  },
+  "homepage": "https://github.com/stewlivecrew/fitness-corner#readme",
+  "devDependencies": {
+    "eslint": "^9.39.5",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.7.0"
+  }
+}

@@ -573,6 +573,18 @@ function FitnessCornerGenerator() {
     return () => clearInterval(id);
   }, [phase]);
 
+  const { session, athletic } = useMemo(() => {
+    const s = buildSession(focus, level, eq, adjs, patternMem);
+    const used = new Set(s.filter((x) => !x.missing).map((x) => x.pick.name));
+    const a = power ? buildAthletic(level, eq, used, adjs) : [];
+    return { session: s, athletic: a };
+  }, [focus, level, eq, adjs, power, patternMem]);
+
+  useEffect(() => {
+    if (!athletic.some((s) => !s.missing)) return;
+    if (athletic.every((s, j) => s.missing || done["a" + j] != null)) setAthleticOpen(false);
+  }, [done, athletic]);
+
   const elapsedSec = phase === "running" && startTs ? Math.floor((now - startTs) / 1000) : 0;
   const fmtT = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
@@ -626,18 +638,6 @@ function FitnessCornerGenerator() {
     setLog([]); setPatternMem({}); streakRef.current = {}; setSavedCorners({});
     if (hasStorage) { for (const k of ["fc-log", "fc-levels", "fc-corners"]) { try { await window.storage.delete(k); } catch {} } }
   };
-
-  const { session, athletic } = useMemo(() => {
-    const s = buildSession(focus, level, eq, adjs, patternMem);
-    const used = new Set(s.filter((x) => !x.missing).map((x) => x.pick.name));
-    const a = power ? buildAthletic(level, eq, used, adjs) : [];
-    return { session: s, athletic: a };
-  }, [focus, level, eq, adjs, power, patternMem]);
-
-  useEffect(() => {
-    if (!athletic.some((s) => !s.missing)) return;
-    if (athletic.every((s, j) => s.missing || done["a" + j] != null)) setAthleticOpen(false);
-  }, [done, athletic]);
 
   const hitMuscles = useMemo(() => {
     const hit = new Set();
@@ -1565,4 +1565,3 @@ function Toggle({ on, onChange, onLabel = "Include", offLabel = "Skip" }) {
     </div>
   );
 }
-

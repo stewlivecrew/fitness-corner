@@ -23,11 +23,13 @@ timer, logging, and auto-progression.
 `index.html` on GitHub Pages. Friends-and-family testing phase.
 Key success metric: does anyone do a second session unprompted.
 
-**Stack:** One React JSX file (no build step in beta — Babel standalone +
-React 18 UMD via cdnjs). Persistence via `window.storage` API (Claude
-artifact) shimmed to `localStorage` in the standalone build (`fc:` key
-prefix). No backend, no accounts, no external assets — all icons are
-inline SVG.
+**Stack:** One React JSX file (no build step for the *deployed app* — Babel
+standalone + React 18 UMD via cdnjs). Persistence via `window.storage` API
+(Claude artifact) shimmed to `localStorage` in the standalone build (`fc:`
+key prefix). No backend, no accounts, no external assets — all icons are
+inline SVG. Node.js is a **dev-time-only** requirement now (lint/build
+tooling below) — it never ships; the deployed page still has zero runtime
+dependencies beyond the CDN scripts.
 
 **Files:**
 
@@ -35,8 +37,8 @@ inline SVG.
   session; served by the local dev server for live iteration. Not
   authoritative — see decision log `[architecture]` entry below.
 - `fitness-corner-generator.jsx` — canonical source (Claude artifact form).
-  Synced by porting finalized `sandbox.html` changes into it at commit
-  checkpoints, not continuously.
+  Synced from `sandbox.html` via `scripts/sync_jsx.py` (part of
+  `npm run release`) at commit checkpoints, not continuously.
 - `index.html` — **generated, never hand-edited.** Produced from
   `fitness-corner-generator.jsx` by `scripts/build_html.py` (wraps it in
   the CDN scripts + localStorage storage shim + HTML skeleton). This is
@@ -49,6 +51,12 @@ inline SVG.
 - `scripts/build_html.py` — regenerates `index.html` from
   `fitness-corner-generator.jsx` (stdlib-only Python). Run this after
   syncing the `.jsx`, before committing.
+- `scripts/sync_jsx.py` — regenerates `fitness-corner-generator.jsx` from
+  `sandbox.html` (stdlib-only Python). Automates the "port sandbox changes
+  into the canonical `.jsx`" step — don't hand-copy between the two.
+- `package.json` / `eslint.config.mjs` — **dev tooling only**, not shipped.
+  `npm run release` chains sync → lint → build (the full pre-commit
+  checkpoint). Requires Node (dev-time only, see Stack above).
 - `CLAUDE.md` — this file
 
 **Owner intent:** Not a money project. Pay-once/"cover hosting costs" model
@@ -206,11 +214,11 @@ Exercise entry schema (compiled `EXERCISES` array, generated — read-only):
 
 GitHub Pages: repo `fitness-corner`, `index.html` at root, Pages from
 main branch (Pages requires this exact filename/location to auto-serve).
-Update flow: edit `sandbox.html` during the session → port finalized
-changes into `fitness-corner-generator.jsx` → run
-`python3 scripts/build_html.py` to regenerate `index.html` → commit →
-push. Same URL, ~1–2 min propagation. localStorage is per-browser-per-
-device (no sync) — accepted beta constraint.
+Update flow: edit `sandbox.html` during the session → run `npm run
+release` (syncs into `fitness-corner-generator.jsx`, lints it, then
+regenerates `index.html`) → commit → push. Same URL, ~1–2 min propagation.
+localStorage is per-browser-per-device (no sync) — accepted beta
+constraint.
 
 ### Content sources & attribution
 
@@ -317,6 +325,22 @@ Format: `[decision] what — why. (supersedes: none unless noted)`
   `index.html` mechanically generated (verified byte-identical to the
   prior hand-maintained version via diff) removes the manual-discipline
   failure mode instead of just asking future-me to remember better.
+- [tooling] Installed Node + ESLint (`eslint-plugin-react-hooks`,
+  `no-use-before-define`) as dev-only tooling, wired into
+  `npm run release` (sync → lint → build) — root cause was a real
+  production crash: a `useEffect` referenced `athletic` before its
+  `useMemo` declaration in the same component, threw
+  `ReferenceError: Cannot access 'athletic' before initialization`, and
+  produced a blank white page with no way to see the error (no Node, no
+  browser console access, no linting existed at all). Verified the rule
+  actually catches this class of bug by deliberately reintroducing the
+  exact bug and confirming ESLint flagged it before reverting. Disabled
+  `react-hooks/purity` and `react-hooks/set-state-in-effect` — both
+  assume React Compiler, which this app doesn't use (plain React 18 UMD,
+  no build step for the deployed page) — they'd only flag long-standing,
+  working patterns here. This doesn't change the zero-build-step
+  deployment invariant: Node/ESLint are local dev tooling only, never
+  shipped, same spirit as `scripts/build_exercises.py`.
 
 ### Known limitations (honest list)
 
