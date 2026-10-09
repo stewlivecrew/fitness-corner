@@ -511,6 +511,24 @@ function buildAthletic(level, eq, used, adjs) {
   });
 }
 
+// Resolve what each station actually DISPLAYS (swap offset applied), never
+// showing an exercise that an earlier station already shows — "Core & grip"
+// repeats patterns, so two stations can share a swap pool.
+function resolvePicks(stations, swaps, keyFn, taken = []) {
+  const t = new Set(taken);
+  return stations.map((s, i) => {
+    if (s.missing) return null;
+    const n = s.alternatives.length;
+    const off = swaps[keyFn(i)] || 0;
+    let ex = s.alternatives[off % n];
+    for (let k = 1; k < n && t.has(ex.name); k++) ex = s.alternatives[(off + k) % n];
+    t.add(ex.name);
+    return ex;
+  });
+}
+
+const clampLvl = (v) => Math.min(4, Math.max(1, v));
+
 /* ------------------------------------------------------------------ */
 /* UI                                                                  */
 /* ------------------------------------------------------------------ */
@@ -729,6 +747,12 @@ function FitnessCornerGenerator() {
     return { session: s, athletic: a };
   }, [focus, level, eq, adjs, power, patternMem, gen]);
 
+  const picks = useMemo(() => {
+    const main = resolvePicks(session, swaps, (i) => i);
+    const ath = resolvePicks(athletic, swaps, (j) => "a" + j, main.filter(Boolean).map((e) => e.name));
+    return { main, ath, names: new Set([...main, ...ath].filter(Boolean).map((e) => e.name)) };
+  }, [session, athletic, swaps]);
+
   useEffect(() => {
     if (!athletic.some((s) => !s.missing)) return;
     if (athletic.every((s, j) => s.missing || done["a" + j] != null)) setAthleticOpen(false);
@@ -821,9 +845,8 @@ function FitnessCornerGenerator() {
   const saveSession = async () => {
     const stations = session.map((s, i) => {
       if (s.missing) return null;
-      const off = swaps[i] || 0;
-      const ex = s.alternatives[off % s.alternatives.length];
-      return { pattern: s.pattern, name: ex.name, lvl: ex.lvl, doneAt: done[i] ?? null, rating: ratings[i] || null };
+      const ex = picks.main[i];
+      return { pattern: s.pattern, name: ex.name, lvl: ex.lvl, doneAt: done[i] ?? null, rating: ratings[i] || null, adj: adjs[i] || 0 };
     }).filter(Boolean);
     const entry = {
       date: new Date().toISOString(), corner: activeCorner || "Unnamed corner", focus: FOCUS[focus].label,
@@ -833,22 +856,36 @@ function FitnessCornerGenerator() {
     };
     const nextLog = [entry, ...(log || [])].slice(0, 100);
     setLog(nextLog);
-    // Auto-level memory: two "too easy" in a row promotes; one "too hard" demotes.
+    // Auto-level memory, applied ONCE per pattern per session (Core & grip has
+    // two stations per pattern — they must not double-count):
+    // 1. Manual "Harder + / − Easier" steps are kept: the level you finished at
+    //    becomes the new baseline for that pattern.
+    // 2. Ratings: "too easy" in two consecutive sessions promotes; one "too hard"
+    //    demotes. Any "hard" wins; "easy" only if every station of it was easy.
     const mem = { ...patternMem }; const streak = { ...streakRef.current };
+    const byPat = {};
     stations.forEach((st) => {
-      if (st.rating === "easy") {
-        streak[st.pattern] = (streak[st.pattern] || 0) + 1;
-        if (streak[st.pattern] >= 2) { mem[st.pattern] = Math.min(3, (mem[st.pattern] || 0) + 1); streak[st.pattern] = 0; }
-      } else if (st.rating === "hard") {
-        mem[st.pattern] = Math.max(-3, (mem[st.pattern] || 0) - 1); streak[st.pattern] = 0;
-      } else if (st.rating === "right") { streak[st.pattern] = 0; }
+      const b = byPat[st.pattern] || (byPat[st.pattern] = { adj: [], r: [] });
+      b.adj.push(st.adj); if (st.rating) b.r.push(st.rating);
+    });
+    Object.entries(byPat).forEach(([p, { adj, r }]) => {
+      const a = Math.round(adj.reduce((x, y) => x + y, 0) / adj.length);
+      let m = (mem[p] || 0) + a;
+      if (a !== 0) streak[p] = 0;
+      const rating = r.includes("hard") ? "hard" : r.length && r.every((x) => x === "easy") ? "easy" : r.length ? "right" : null;
+      if (rating === "easy") {
+        streak[p] = (streak[p] || 0) + 1;
+        if (streak[p] >= 2) { m += 1; streak[p] = 0; }
+      } else if (rating === "hard") { m -= 1; streak[p] = 0; }
+      else if (rating === "right") { streak[p] = 0; }
+      mem[p] = Math.max(-3, Math.min(3, m));
     });
     setPatternMem(mem); streakRef.current = streak;
     if (hasStorage) {
       try { await window.storage.set("fc-log", JSON.stringify(nextLog)); } catch (e) { console.error(e); }
       try { await window.storage.set("fc-levels", JSON.stringify({ mem, streak })); } catch (e) { console.error(e); }
     }
-    setPhase("idle"); setDone({}); setRatings({});
+    setPhase("idle"); setDone({}); setRatings({}); setAdjs({}); setSwaps({});
   };
 
   const resetData = async () => {
@@ -859,31 +896,30 @@ function FitnessCornerGenerator() {
 
   const hitMuscles = useMemo(() => {
     const hit = new Set();
-    const collect = (arr, keyFn) =>
-      arr.forEach((st, i) => {
-        if (!st.missing) {
-          const off = swaps[keyFn(i)] || 0;
-          const ex = st.alternatives[off % st.alternatives.length];
-          (ex.mus || []).forEach((m) => hit.add(m));
-        }
-      });
-    collect(session, (i) => i);
-    collect(athletic, (i) => "a" + i);
+    [...picks.main, ...picks.ath].forEach((ex) => ex && (ex.mus || []).forEach((m) => hit.add(m)));
     return hit;
-  }, [session, athletic, swaps]);
+  }, [picks]);
 
-  const bump = (i, d) =>
+  // Step from what's DISPLAYED (level + auto-memory + manual), so the button
+  // state and the step always agree. adjs stores the delta vs level + memory.
+  const bump = (key, d, memKey) =>
     setAdjs((a) => {
-      const eff = Math.min(4, Math.max(1, level + (a[i] || 0) + d));
-      return { ...a, [i]: eff - level };
+      const base = level + ((memKey && patternMem[memKey]) || 0);
+      const next = clampLvl(clampLvl(base + (a[key] || 0)) + d);
+      return { ...a, [key]: next - base };
     });
 
+  // Changing equipment, focus or level rebuilds the workout — drop per-station
+  // swaps/steps so they can't land on the wrong station.
+  const resetTweaks = () => { setSwaps({}); setAdjs({}); };
+
   const toggle = (id) => {
+    resetTweaks();
     setActiveCorner("");
     setEq((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
   };
 
-  const applyPreset = (p) => { setActiveCorner(""); setEq(p.eq); };
+  const applyPreset = (p) => { resetTweaks(); setActiveCorner(""); setEq(p.eq); };
 
   // Fresh seed + rotate away from what you did last time at this corner and in
   // your most recent session. `extra` lets "New mix" also dodge today's picks.
@@ -903,8 +939,17 @@ function FitnessCornerGenerator() {
     setStep(2);
   };
 
-  const doSwap = (i, poolLen) =>
-    setSwaps((s) => ({ ...s, [i]: ((s[i] || 0) + 1) % poolLen }));
+  // Swap to the next peer that isn't already shown at another station.
+  const doSwap = (key, s, current) =>
+    setSwaps((sw) => {
+      const n = s.alternatives.length;
+      const off = sw[key] || 0;
+      for (let k = 1; k <= n; k++) {
+        const c = s.alternatives[(off + k) % n];
+        if (c.name !== current.name && !picks.names.has(c.name)) return { ...sw, [key]: (off + k) % n };
+      }
+      return sw;
+    });
 
   const restLine =
     format === "straight"
@@ -1003,7 +1048,7 @@ function FitnessCornerGenerator() {
                 </button>
               ))}
               <button
-                onClick={() => { setEq([]); setActiveCorner(""); }}
+                onClick={() => { resetTweaks(); setEq([]); setActiveCorner(""); }}
                 className="disp"
                 style={{
                   border: `2px dashed ${T.steel}`, background: "transparent", color: T.steel,
@@ -1022,7 +1067,7 @@ function FitnessCornerGenerator() {
                 {Object.entries(savedCorners).map(([nm, eqList]) => (
                   <div key={nm} data-corner={nm} style={{ display: "flex", gap: 6, marginBottom: 6 }}>
                     <button
-                      onClick={() => { setEq(eqList); setActiveCorner(nm); }}
+                      onClick={() => { resetTweaks(); setEq(eqList); setActiveCorner(nm); }}
                       className="disp"
                       style={{
                         flex: 1, textAlign: "left", minHeight: 44,
@@ -1132,13 +1177,13 @@ function FitnessCornerGenerator() {
         {step === 1 && (
           <>
             <Field label="Training level">
-              <Segmented options={LEVELS} value={LEVELS[level - 1]} onChange={(v) => setLevel(LEVELS.indexOf(v) + 1)} />
+              <Segmented options={LEVELS} value={LEVELS[level - 1]} onChange={(v) => { resetTweaks(); setLevel(LEVELS.indexOf(v) + 1); }} />
             </Field>
             <Field label="Focus">
               <Segmented
                 options={Object.values(FOCUS).map((f) => f.label)}
                 value={FOCUS[focus].label}
-                onChange={(v) => setFocus(Object.keys(FOCUS).find((k) => FOCUS[k].label === v))}
+                onChange={(v) => { resetTweaks(); setFocus(Object.keys(FOCUS).find((k) => FOCUS[k].label === v)); }}
               />
             </Field>
             <Field label="Sets per station">
@@ -1204,7 +1249,7 @@ function FitnessCornerGenerator() {
                   ▶ Start session
                 </button>
                 <button
-                  onClick={() => regenerate(activeCorner, session.map((s, i) => (s.missing ? null : s.alternatives[(swaps[i] || 0) % s.alternatives.length].name)).filter(Boolean))}
+                  onClick={() => regenerate(activeCorner, [...picks.names])}
                   className="disp"
                   style={{ width: "100%", marginTop: 8, background: "transparent", color: T.green, border: `2px solid ${T.green}`, borderRadius: 10, padding: "9px 0", fontSize: 14, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em" }}
                 >
@@ -1273,12 +1318,11 @@ function FitnessCornerGenerator() {
                   How was each pattern?
                 </div>
                 <div style={{ fontSize: 12.5, color: T.steel, marginTop: 2 }}>
-                  "Too easy" twice in a row auto-promotes that pattern next session. "Too hard" steps it back immediately.
+                  Any Harder + / − Easier taps are remembered. On top of that, "too easy" two sessions in a row promotes that pattern; "too hard" steps it back immediately.
                 </div>
                 {session.map((s, i) => {
                   if (s.missing) return null;
-                  const off = swaps[i] || 0;
-                  const ex = s.alternatives[off % s.alternatives.length];
+                  const ex = picks.main[i];
                   return (
                     <div key={i} style={{ marginTop: 10 }}>
                       <div style={{ fontSize: 13.5, fontWeight: 600, color: T.ink }}>{i + 1}. {ex.name}</div>
@@ -1397,8 +1441,7 @@ function FitnessCornerGenerator() {
                 {athleticOpen && athletic.map((s, j) => {
                   if (s.missing) return null;
                   const k = "a" + j;
-                  const off = swaps[k] || 0;
-                  const ex = s.alternatives[off % s.alternatives.length];
+                  const ex = picks.ath[j];
                   const setsText = ex.reps.includes("×") ? ex.reps : (s.kind === "skill" ? `2 × ${ex.reps}` : `3 × ${ex.reps}`);
                   return (
                     <StationPlate
@@ -1408,7 +1451,7 @@ function FitnessCornerGenerator() {
                       ex={ex}
                       setsText={setsText}
                       canSwap={s.alternatives.length > 1}
-                      onSwap={() => doSwap(k, s.alternatives.length)}
+                      onSwap={() => doSwap(k, s, ex)}
                       guideOpen={!!guides[k]}
                       onToggleGuide={() => setGuides((g) => ({ ...g, [k]: !g[k] }))}
                       easierDisabled={s.effLevel <= 1}
@@ -1428,7 +1471,7 @@ function FitnessCornerGenerator() {
 
             <div style={{ fontSize: 13.5, color: T.steel, marginBottom: 6 }}>{restLine}</div>
             <div style={{ fontSize: 13.5, color: T.steel, marginBottom: 14, lineHeight: 1.45 }}>
-              <span className="disp" style={{ fontWeight: 800, color: T.green, textTransform: "uppercase", letterSpacing: "0.04em" }}>Progression standard:</span> when you can complete every set at the top of an exercise's rep range with perfect form and control — two sessions in a row — promote that pattern one level with "Harder +". Until then, win by one more rep, one more second, or a slower tempo.
+              <span className="disp" style={{ fontWeight: 800, color: T.green, textTransform: "uppercase", letterSpacing: "0.04em" }}>Progression standard:</span> when you can complete every set at the top of an exercise's rep range with perfect form and control — two sessions in a row — promote that pattern one level with "Harder +" — when you save the session, the level you finished at is remembered for next time. Until then, win by one more rep, one more second, or a slower tempo.
             </div>
 
             {session.map((s, i) => {
@@ -1444,8 +1487,7 @@ function FitnessCornerGenerator() {
                   </div>
                 );
               }
-              const offset = swaps[i] || 0;
-              const ex = s.alternatives[offset % s.alternatives.length];
+              const ex = picks.main[i];
               return (
                 <StationPlate
                   key={i}
@@ -1454,13 +1496,13 @@ function FitnessCornerGenerator() {
                   ex={ex}
                   setsText={`${sets} × ${ex.reps}`}
                   canSwap={s.alternatives.length > 1}
-                  onSwap={() => doSwap(i, s.alternatives.length)}
+                  onSwap={() => doSwap(i, s, ex)}
                   guideOpen={!!guides[i]}
                   onToggleGuide={() => setGuides((g) => ({ ...g, [i]: !g[i] }))}
                   easierDisabled={s.effLevel <= 1}
                   harderDisabled={s.effLevel >= 4}
-                  onEasier={() => { bump(i, -1); setSwaps((sw) => ({ ...sw, [i]: 0 })); }}
-                  onHarder={() => { bump(i, 1); setSwaps((sw) => ({ ...sw, [i]: 0 })); }}
+                  onEasier={() => { bump(i, -1, s.pattern); setSwaps((sw) => ({ ...sw, [i]: 0 })); }}
+                  onHarder={() => { bump(i, 1, s.pattern); setSwaps((sw) => ({ ...sw, [i]: 0 })); }}
                   easier={s.easier}
                   next={s.next}
                   sessionActive={phase === "running" && format === "straight"}
@@ -1729,7 +1771,7 @@ function FitnessCornerGenerator() {
                       Auto-level memory
                     </div>
                     <div style={{ fontSize: 12.5, color: T.steel, marginTop: 2 }}>
-                      Learned from your ratings — applied automatically to new workouts.
+                      Learned from your ratings and Harder/Easier taps — applied automatically to new workouts.
                     </div>
                     {Object.entries(patternMem).filter(([, v]) => v !== 0).map(([p, v]) => (
                       <div key={p} style={{ fontSize: 13.5, color: T.ink, marginTop: 5 }}>

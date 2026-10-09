@@ -182,9 +182,18 @@ Exercise entry schema (compiled `EXERCISES` array, generated — read-only):
   Warm-up and cool-down always have their own ✓. Timestamps display as
   "✓ at m:ss" (session-clock time, not duration).
 - Post-session ratings per station: easy | right | hard.
-- **Auto-level memory:** "too easy" ×2 consecutive → pattern +1 (cap +3);
-  "too hard" ×1 → −1 immediately (floor −3). Asymmetric on purpose:
-  demote fast, promote cautiously.
+- **Auto-level memory:** "too easy" ×2 consecutive sessions → pattern +1
+  (cap +3); "too hard" ×1 → −1 immediately (floor −3). Asymmetric on
+  purpose: demote fast, promote cautiously. Applied ONCE per pattern per
+  saved session (Core & grip's two stations per pattern aggregate: any
+  hard → hard; easy only if all easy). Manual Harder+/Easier steps are
+  folded into memory on save — the level you finished at becomes the
+  baseline (`adjs` = delta vs level + memory; `bump()` steps from the
+  displayed effective level so button state and effect always agree).
+- `resolvePicks()` is the single source of what each station displays
+  (swap offset applied, never duplicating an earlier station's exercise);
+  render, coverage, ratings and the log all read `picks`. Equipment /
+  focus / level changes call `resetTweaks()` to drop stale swaps/steps.
 - Storage keys: `fc-corners` (name → equipment[]), `fc-log` (sessions,
   newest first, cap 100), `fc-levels` ({mem, streak}), `fc-settings`
   (last eq/level/focus/sets/format/toggles/activeCorner — restored on
@@ -350,6 +359,10 @@ Format: `[decision] what — why. (supersedes: none unless noted)`
   destructive action + JSON backup — iOS routinely kills backgrounded
   tabs mid-workout, Safari can evict localStorage for unused sites, and
   "Reset all" was one unconfirmed tap from wiping everything.
+- [progression] Harder+/Easier are persisted into auto-level memory on
+  save (rather than rewording the UI) — the on-screen progression
+  standard tells users to promote with "Harder +", so not remembering
+  it silently undid their decision every session.
 - [content-authoring] Exercise data moved from hand-edited `EXERCISES`
   array to `exercises.md` + `scripts/build_exercises.py` generator — the
   raw JS array (single-line-per-entry, ~124 entries) was hard to browse
