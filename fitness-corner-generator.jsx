@@ -407,15 +407,16 @@ function hashStr(s) {
   for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
   return h >>> 0;
 }
-// Order same-tier peers: (1) exercises that use equipment you ticked beat
-// ground-only ones — "select what you see" means what you see gets used;
-// (2) exercises not done recently; (3) seeded shuffle. Level still sets the
-// floor — this only reorders one tier.
+// Order same-tier peers: (1) exercises not done recently; (2) among those,
+// exercises that use equipment you ticked beat ground-only ones — "select
+// what you see" means what you see gets used, but one machine variant must
+// not lock out every ground peer session after session; (3) seeded shuffle.
+// Level still sets the floor — this only reorders one tier.
 const usesEq = (e) => (e.req.length > 0 ? 1 : 0);
 function orderPeers(peers, rng, avoid) {
   return peers
     .map((e) => ({ e, r: rng() }))
-    .sort((a, b) => (usesEq(b.e) - usesEq(a.e)) || (avoid.has(a.e.name) - avoid.has(b.e.name)) || (a.r - b.r))
+    .sort((a, b) => (avoid.has(a.e.name) - avoid.has(b.e.name)) || (usesEq(b.e) - usesEq(a.e)) || (a.r - b.r))
     .map((k) => k.e);
 }
 

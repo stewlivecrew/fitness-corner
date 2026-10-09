@@ -152,8 +152,8 @@ Exercise entry schema (compiled `EXERCISES` array, generated — read-only):
    reshuffle; each station gets its own RNG (seed ^ hash(pattern:idx))
    so stepping one station never reshuffles the others. Level still sets
    the floor — variety only reorders one tier. Ordering key, highest
-   priority first: uses ticked equipment (`req` non-empty) → not done
-   recently → seeded shuffle. Athletic block ties also prefer equipment.
+   priority first: not done recently → uses ticked equipment (`req`
+   non-empty) → seeded shuffle. Athletic block ties also prefer equipment.
 2. Effective level = global level + manual stepper adj + auto-memory adj,
    clamped 1–4.
 3. Swap alternatives = peers at the SAME top tier only (easier exercises
@@ -463,6 +463,13 @@ Format: `[decision] what — why. (supersedes: none unless noted)`
   machine, and machines vanished entirely above Beginner. Thin stations
   (leg-raise, push-up bars, sit-up bench, Swiss ladder, beam) got 3–4
   entries each so they actually show up.
+- [variety-first] `orderPeers` ranks "not done recently" ABOVE "uses
+  ticked equipment" (equipment is now the tie-breaker) — with equipment
+  first, a single equipment variant beat every ground peer every session
+  (HDB Beginner legs = Bench squat forever; 41% of stations repeated the
+  previous session in simulation → 17% after the flip). Equipment still
+  wins whenever it wasn't just done, so machines still show up most
+  sessions. (supersedes: the ordering key in [equipment-wins])
 - [two-tap] Settings + last corner persist; each saved corner has ▶ Go
   (load corner → fresh seed → Workout tab) and the Equipment tab opens
   with "▶ Go — same as last time". Open app → Go is the target flow.
