@@ -80,6 +80,11 @@ accounts, no external runtime requests. Node.js (ESLint + esbuild) is a
 - `scripts/install_hooks.sh` — one-time per-clone setup
   (`git config core.hooksPath .githooks`); already run on this machine.
   A fresh clone needs this run once before the hook is active.
+- `scripts/build_corners.py` — regenerates the `SG_CORNERS` block (public
+  fitness-corner locations, bundled offline) in both `sandbox.html` and
+  the `.jsx` from data.gov.sg open data (stdlib Python + curl; raw
+  downloads cached in `build/corners-src/`, `--refresh` re-downloads).
+  Never hand-edit the block. See Layer 2 > Nearest corner.
 - `CLAUDE.md` — this file
 
 **Owner intent:** Not a money project. Pay-once/"cover hosting costs" model
@@ -239,7 +244,8 @@ Exercise entry schema (compiled `EXERCISES` array, generated — read-only):
   (swap offset applied, never duplicating an earlier station's exercise);
   render, coverage, ratings and the log all read `picks`. Equipment /
   focus / level changes call `resetTweaks()` to drop stale swaps/steps.
-- Storage keys: `fc-corners` (name → equipment[]), `fc-log` (sessions,
+- Storage keys: `fc-corners` (name → equipment[]), `fc-places`
+  (map-corner confirmations, see Nearest corner), `fc-log` (sessions,
   newest first, cap 100), `fc-levels` ({mem, streak}), `fc-finisher`
   (finisher history), `fc-test` ({history: newest first, cap 20;
   offered; barCheckDismissed; snoozeUntil}), `fc-test-active` (an
@@ -308,6 +314,83 @@ see the design doc summarised in the `[fitness-test]` decision entry.
 - `scoreTest()` / `medianLevel()` / `testMetrics()` are pure — test them
   outside React when changing thresholds.
 
+### Nearest corner + per-corner confirmations
+
+- **Data:** `SG_CORNERS` (generated, ~45 KB in the bundle, so offline by
+  construction — no runtime fetch). 402 corners from 475 NParks "FITNESS
+  AREA" points (points < 30 m apart merged into one corner). Row =
+  `[datasetId (NParks UNIQUEID GUID), name, description, lat, lng,
+  planning area, park connector]`. Name = the NParks park polygon the point
+  sits in (or nearest within 80 m), abbreviations expanded (PG →
+  Playground, PK → Park, PC → PCN), `#n` west→east when a park has
+  several; description = "3-generation (3G) fitness area" / "Adult
+  fitness area" from the facility NAME (free text, mostly generic); PCN =
+  nearest Park Connector Loop segment within 60 m. Coverage is NParks
+  parks/PCNs only — **most HDB estate / town-council corners are NOT in
+  any precise public dataset** (SportSG "Sport Facilities" has ~2,870
+  "Fitness Corner" rows but coordinates are rounded to 3 dp (~110 m) and
+  it mixes in private condo/school facilities — not used).
+- **Source / date / licence:** data.gov.sg, accessed 2026-10-09 —
+  NParks *Park Facilities* `d_14d807e20158338fd578c2913953516e` (CLASS ==
+  "FITNESS AREA"), NParks *NParks Parks and Nature Reserves*
+  `d_77d7ec97be83d44f61b85454f844382f`, NParks *Park Connector Loop*
+  `d_a69ef89737379f231d2ae93fd1c5707f`, URA *Master Plan 2025 Planning
+  Area Boundary (No Sea)* `d_2cc750190544007400b2cfd5d7f53209`. All under
+  the **Singapore Open Data Licence v1.0**
+  (https://data.gov.sg/open-data-licence): commercial use OK; must show a
+  conspicuous attribution notice with a licence link (shown at the foot
+  of the Nearest corner panel — keep it) and must not imply official
+  status/endorsement ("Not an official NParks app" is in the notice).
+  Refresh: `python3 scripts/build_corners.py --refresh`, then commit.
+  Dataset ids are GUIDs and survive refreshes; a removed facility simply
+  drops out (a saved corner keeps working, it just isn't on the list).
+- **Flow:** Equipment tab "📍 Find nearest corner" → intro screen
+  explains why BEFORE the iOS prompt (skipped if Permissions API says
+  already granted) → `navigator.geolocation.getCurrentPosition` only on
+  tap (high accuracy, 15 s timeout, maximumAge 15 s; Refresh = 0) → 5
+  closest, straight-line distance + walk time (×1.3 detour at 80 m/min)
+  + Apple Maps / Google Maps walking-directions links. Denied / timeout /
+  unsupported → explanation + search by park, area or PCN name (also
+  reachable via "Search instead"). Location never leaves the phone.
+- **No presets for unknown corners** (owner decision). "I'm here — set
+  up" opens the picker EMPTY with "Tap what you see here — saved for next
+  time", presets/My-corners hidden, editable name (defaults to dataset
+  name, de-duplicated with " (2)"). "Save & start workout" (or Generate on
+  the Session tab) commits. Confirmed corners show ▶ Go + "Confirmed by
+  you on <date>" in the nearest list and in My corners. ✎ on any saved
+  corner = edit name + equipment in the same banner (replaces the old
+  rename prompt; history still follows a rename).
+- **"Equipment not here?"** on every station card whose exercise needs
+  equipment (main + athletic, also mid-session): pick the missing item →
+  removed from today's equipment AND the active saved corner, recorded as
+  an absence on the map corner, card swaps (swap offsets reset, steppers
+  kept).
+- **Storage:** `fc-corners` stays `name → equipment[]` (the source of
+  truth for generation; unchanged, so old data and old backups work).
+  New `fc-places` = `{ [datasetId]: { v: 1, id, src:
+  "nparks-park-facilities", lat, lng, corner: <fc-corners name>,
+  confirmedAt, updatedAt, equipment: { [equipId]: { present: bool, at:
+  ISO, by: "me", how: "picker"|"edit"|"not-here" } } } }`. A place counts
+  as confirmed only while `fc-corners[corner]` exists (deleting the corner
+  deletes the place; saving a different list under the same name unlinks
+  it). Included in Export automatically (all `fc-*`); importing an old
+  backup without `fc-places` clears it so links can't go stale; Reset
+  deletes it.
+- **Future paid feature (not built — nothing online yet):** shared,
+  crowdsourced verification + comments. The `fc-places.equipment` shape
+  is deliberately one row per (corner, equipment, person, time) so it can
+  be uploaded as-is: server keeps per-equipment confirmations; an item is
+  "verified" once ≥ N people (owner suggested ~3) confirm present with no
+  newer "not here"; a corner is verified / partial / new by its items;
+  "not here"/"broken" reports drop status back. Needs light sign-in (one
+  vote per person), spam/abuse reporting for comments/photos, and a small
+  DB (Supabase / Cloudflare D1 free tier). Owner decision 2026-10-09:
+  shared verification + comments = cheap one-time lifetime payment to
+  cover costs. **Open question:** reconcile with "corner-data
+  contribution must NEVER be paywalled" (Layer 1) — e.g. submitting stays
+  free, the shared verified layer + comments is the paid surface. Confirm
+  with the owner before building.
+
 ### Content style rules (enforce on every DB edit)
 
 - `how` text: body position BEFORE movement ("Lie on your back with
@@ -368,6 +451,8 @@ data carries over.
 
 ### Content sources & attribution
 
+- Corner locations: see Layer 2 > Nearest corner for the exact datasets,
+  access date and Singapore Open Data Licence v1.0 attribution duty.
 - Equipment landscape: data.gov.sg / NParks datasets (park connector
   GeoJSON, parks with fitness-corner flags), OneMap exercise-facility
   themes, parliamentary answer (~3,400 corners, mostly multi-gen).
@@ -398,11 +483,15 @@ data carries over.
    generation). First items: mini band (progresses glute med beyond
    the band-free side-lying abduction / side-plank leg raise), jump rope (canonical elastic tool),
    rings/suspension strap (biggest exercise-count-per-gram).
-4. **Map layer** — plot corners from OneMap/data.gov.sg; saved corners
-   pin to locations. View free for everyone; personal layer ("my
+4. **Map layer** — ~~nearest-corner list~~ shipped (Layer 2 > Nearest
+   corner; list, not a map). Next: an actual map view, HDB estate
+   corners (no precise public dataset — crowdsourced adds), course mode
+   (string 3–4 corners along a run). Saved corners pin to locations. View free for everyone; personal layer ("my
    corners", history-at-corner) is the paid surface if any.
 5. **Crowdsourced corner DB** — photo the NParks notice board → equipment
-   record (OCR later). Contribution always free.
+   record (OCR later). Local per-equipment confirmations already stored in
+   `fc-places` in a sync-ready shape; shared verification + comments is
+   the planned paid feature (see Layer 2 > Nearest corner, open question).
 6. **Weekly coverage** — aggregate per-session coverage chips across the
    log ("hamstrings dashed 3 sessions running").
 7. **Time-budget generation** — "I have 20 min" sized by the user's own
@@ -589,6 +678,15 @@ Format: `[decision] what — why. (supersedes: none unless noted)`
   memory is per pattern, and a light fixed-resistance pulldown said
   nothing about pull-ups. (supersedes: part of [progression] for lever
   stations only)
+
+- [nearest-corner] Bundle NParks fitness-area points (402 corners) in the
+  app instead of fetching at runtime — works at a park with no signal and
+  keeps "no external runtime requests". Straight-line distance, no routing
+  (consistent with [scope]); directions hand off to Apple/Google Maps.
+  Unknown corners open an EMPTY picker — owner rejected typical-setup
+  presets ("I'd rather it get verified"). Confirmations live in a new
+  `fc-places` key rather than reshaping `fc-corners`, so existing data,
+  backups and generation are untouched.
 
 ### Known limitations (honest list)
 
