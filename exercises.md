@@ -68,7 +68,7 @@ yet built in (use this to stage new exercise ideas before they're ready).
 - status: active
 
 ### Wall walk
-- level: 2
+- level: 3
 - requires: (none)
 - reps: 3–5
 - muscles: shoulders, triceps, abs
@@ -110,15 +110,6 @@ yet built in (use this to stage new exercise ideas before they're ready).
 - muscles: chest, triceps, shoulders
 - how: Jump to support yourself on top of the bar with straight arms and the bar at your hips, feet off the ground. Lean slightly over the bar, bend your elbows to dip down deep, then press back to straight arms.
 - cue: Lean over the bar — brutal on shoulders and chest, in a good way.
-- status: active
-
-### Korean dip
-- level: 4
-- requires: lowBar
-- reps: 3–6
-- muscles: chest, triceps, shoulders
-- how: Stand with your back to the bar and grip it behind your hips, hands facing back. Support your weight on straight arms with legs out in front, then bend your elbows to dip down and press back up.
-- cue: Extreme shoulder stretch — ease into the depth over several sessions.
 - status: active
 
 ### Handstand push-up negative
@@ -268,7 +259,7 @@ yet built in (use this to stage new exercise ideas before they're ready).
 - status: active
 
 ### Dead hang + scapular pulls (monkey bars)
-- level: 2
+- level: 1
 - requires: monkeyBars
 - reps: 20–30s + 6 pulls
 - muscles: forearms, lats, upperBack
@@ -405,12 +396,12 @@ yet built in (use this to stage new exercise ideas before they're ready).
 - status: active
 
 ### Bench dip
-- level: 1
+- level: 2
 - requires: bench
 - reps: 8–15
 - muscles: triceps, chest, shoulders
 - how: Sit on the edge of the bench, hands gripping the edge beside your hips. Slide your bottom off the bench with legs out in front, then bend your elbows to lower your hips toward the ground and press back up.
-- cue: Dip until elbows hit 90°, shoulders pressed down away from the ears.
+- cue: Stop when your elbows reach 90° and keep your shoulders pressed down away from your ears. If the front of your shoulder pinches, bend your knees and shorten the dip.
 - status: active
 
 ### Knee diamond push-up
@@ -802,16 +793,6 @@ yet built in (use this to stage new exercise ideas before they're ready).
 - muscles: quads, glutes
 - how: Take a long step forward and stay in that stance. Bend both knees to lower your back knee toward the ground, then push back up through your front foot without moving your feet.
 - cue: Back knee kisses the ground, front shin stays near vertical.
-- status: active
-
-### Jump squat
-- athletic: power
-- level: 2
-- requires: (none)
-- reps: 6–10
-- muscles: quads, glutes, calves
-- how: Do a squat, but on the way up push hard enough to leave the ground. Land softly with bent knees and go straight into the next rep.
-- cue: Land quiet, reach full hip extension at takeoff.
 - status: active
 
 ### Reverse lunge
@@ -1219,8 +1200,8 @@ yet built in (use this to stage new exercise ideas before they're ready).
 - requires: (none)
 - reps: 10–12 / side
 - muscles: obliques, abs
-- how: Sit on the ground, lean back slightly, and lift your feet so they hover. Clasp your hands and rotate your torso to touch the ground beside one hip, then the other.
-- cue: Rotate the ribcage, not just the arms — slow beats fast here.
+- how: Sit on the ground with your knees bent and heels resting on the ground, then lean back slightly with a tall chest. Clasp your hands in front of you and slowly turn your ribcage to bring your hands beside your right hip, then turn to the left.
+- cue: Slow and controlled, with your heels down. Lift your feet only once every rep stays smooth, and stop if your lower back complains.
 - status: active
 
 ### Incline sit-up
@@ -1377,7 +1358,7 @@ yet built in (use this to stage new exercise ideas before they're ready).
 - status: active
 
 ### Arms-overhead slow sit-up
-- level: 4
+- level: 3
 - requires: situpBench
 - reps: 6–10
 - muscles: abs
@@ -1468,6 +1449,16 @@ yet built in (use this to stage new exercise ideas before they're ready).
 
 ## Grip / Athletic
 
+### Jump squat
+- athletic: power
+- level: 2
+- requires: (none)
+- reps: 6–10
+- muscles: quads, glutes, calves
+- how: Do a squat, but on the way up push hard enough to leave the ground. Land softly with bent knees and go straight into the next rep.
+- cue: Land quiet, reach full hip extension at takeoff.
+- status: active
+
 ### Timed dead hang
 - level: 1
 - requires: highBar
@@ -1497,7 +1488,7 @@ yet built in (use this to stage new exercise ideas before they're ready).
 - status: active
 
 ### Single-leg calf raise
-- level: 1
+- level: 2
 - requires: step
 - reps: 12–15 / leg
 - muscles: calves

@@ -99,7 +99,7 @@ this. Do not break it.
 
 ### Data model
 
-**`exercises.md` is the source of truth** (208 entries as of this writing).
+**`exercises.md` is the source of truth** (207 entries as of this writing).
 Authored per-exercise as a Markdown block (pattern heading → `###` name →
 `- field: value` lines, including a `status: active|candidate` field so new
 ideas can be staged without wiring them into the app yet). Run
@@ -126,7 +126,7 @@ Exercise entry schema (compiled `EXERCISES` array, generated — read-only):
 - **8 patterns:** verticalPush, verticalPull, horizontalPush,
   horizontalPull, kneeDominant, hipDominant, core, gripAthletic.
   Dips live inside push patterns (bench/parallel = horizontal;
-  straight-bar/Korean = vertical) — do not create a 9th "dip" pattern.
+  straight-bar = vertical) — do not create a 9th "dip" pattern.
 - **16 equipment IDs** modeled on real SG corner inventory, incl. the four
   multi-generational lever machines (fixed light resistance — cues must
   compensate with tempo/pauses/single-limb) and logLift. Tai chi wheels /
@@ -485,6 +485,15 @@ Format: `[decision] what — why. (supersedes: none unless noted)`
   (hasaneyldrm) used as a name checklist only — its text is often wrong and
   its media is not licensed; all text written fresh. Rejected: curtsy and
   sissy squats, unloaded Jefferson curl, towel rows, planche/flag/muscle-up.
+- [content] Level/safety pass from the gap analysis: Arms-overhead slow
+  sit-up L4→L3 (it was multi-gen's only "Expert" core move), Wall walk
+  L2→L3 (an inversion, not intermediate), monkey-bar dead hang + scap
+  pulls L2→L1 (matches the high-bar version), single-leg calf raise (step)
+  L1→L2, Bench dip L1→L2 with a 90°/shoulder-pinch cue (front-of-shoulder
+  load for untrained users). Korean dip removed (fringe, extreme shoulder
+  extension). Russian twist kept at L2 but rewritten heels-down and slow.
+  Jump squat moved from kneeDominant to gripAthletic so a plyo never fills
+  the leg strength slot (still drawn by the athletic block as `power`).
 - [two-tap] Settings + last corner persist; each saved corner has ▶ Go
   (load corner → fresh seed → Workout tab) and the Equipment tab opens
   with "▶ Go — same as last time". Open app → Go is the target flow.
