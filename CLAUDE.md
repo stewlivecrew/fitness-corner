@@ -53,6 +53,9 @@ accounts, no external runtime requests. Node.js (ESLint + esbuild) is a
   the PNGs (192, 512, maskable 512 — full-bleed so it survives any mask —
   180 apple-touch, 32 favicon) are Lanczos downscales of it (Pillow),
   committed. Keep them opaque (iOS fills transparency with black).
+  `build_html.py` appends a content-hash `?v=` to every icon URL (HTML,
+  manifest, SW precache) so changed artwork gets a new URL — iOS caches
+  touch icons per URL.
 - `_config.yml` — Jekyll `exclude:` so Pages serves only the built app
   (not `sandbox.html`, sources or docs).
 - `exercises.md` — source-of-truth exercise library (see Data model below);

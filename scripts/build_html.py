@@ -90,6 +90,13 @@ def sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()[:12]
 
 
+def iv(rel: str) -> str:
+    """Icon URL with a content-hash query, so a changed icon gets a NEW URL.
+    iOS/Safari cache touch icons per URL -- without this, re-adding the
+    home-screen shortcut can still show the old artwork."""
+    return f"{rel}?v={sha((ROOT / rel).read_bytes())[:8]}"
+
+
 def bundle():
     if not ESBUILD.exists():
         sys.exit("esbuild not found -- run `npm ci` first (dev-time dependency).")
@@ -140,9 +147,9 @@ def write_manifest():
         "background_color": PAPER,
         "theme_color": GREEN,
         "icons": [
-            {"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png"},
-            {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png"},
-            {"src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
+            {"src": iv("icons/icon-192.png"), "sizes": "192x192", "type": "image/png"},
+            {"src": iv("icons/icon-512.png"), "sizes": "512x512", "type": "image/png"},
+            {"src": iv("icons/icon-maskable-512.png"), "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
         ],
     }
     p = ROOT / "manifest.webmanifest"
@@ -154,10 +161,10 @@ def main():
     app = bundle()
     app_v = sha(app.read_bytes())
     font_css = copy_fonts()
-    write_manifest()
     for icon in ICONS:
         if not (ROOT / icon).exists():
             sys.exit(f"missing {icon} (downscale it from icons/icon-source.png)")
+    write_manifest()
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -172,8 +179,8 @@ def main():
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 <meta name="apple-mobile-web-app-title" content="Fitness Corner" />
 <link rel="manifest" href="manifest.webmanifest" />
-<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png" />
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+<link rel="icon" type="image/png" sizes="32x32" href="{iv("icons/favicon-32.png")}" />
+<link rel="apple-touch-icon" href="{iv("icons/apple-touch-icon.png")}" />
 <link rel="preload" href="assets/fonts/barlow-condensed-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin />
 <style>
 {font_css}
@@ -198,7 +205,7 @@ html,body,#root{{margin:0;padding:0;}} body{{background:{PAPER};-webkit-tap-high
     # Service worker: precache everything, version = hash of all of it, so any
     # change to the app, fonts, icons or shell installs a fresh cache.
     precache = ["./", "index.html", f"assets/app.js?v={app_v}", "manifest.webmanifest"] + \
-               [f"assets/fonts/{f[3]}" for f in FONT_FILES] + ICONS
+               [f"assets/fonts/{f[3]}" for f in FONT_FILES] + [iv(i) for i in ICONS]
     h = hashlib.sha256()
     for rel in ["index.html", "assets/app.js", "manifest.webmanifest"] + [f"assets/fonts/{f[3]}" for f in FONT_FILES] + ICONS:
         h.update((ROOT / rel).read_bytes())
