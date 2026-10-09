@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Fitness Corner app icon: NParks signage green, powder-coat yellow pull-up-bar pictogram.
+       Full-bleed square so it also works as a maskable icon (content sits inside the 80% safe zone). -->
+  <rect width="512" height="512" fill="#1E4D2B"/>
+  <rect y="430" width="512" height="26" fill="#F5B700"/>
+  <g transform="translate(112 92) scale(6)" fill="none" stroke="#F5B700" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M8 8H40 M8 8V44 M40 8V44 M18 8L21 15 M30 8L27 15 M24 21V30 M24 30L20 38 M24 30L28 38"/>
+    <circle cx="24" cy="18" r="3.6" fill="#F5B700" stroke="none"/>
+  </g>
+</svg>

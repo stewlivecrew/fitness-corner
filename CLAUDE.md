@@ -23,13 +23,16 @@ timer, logging, and auto-progression.
 `index.html` on GitHub Pages. Friends-and-family testing phase.
 Key success metric: does anyone do a second session unprompted.
 
-**Stack:** One React JSX file (no build step for the *deployed app* — Babel
-standalone + React 18 UMD via cdnjs). Persistence via `window.storage` API
-(Claude artifact) shimmed to `localStorage` in the standalone build (`fc:`
-key prefix). No backend, no accounts, no external assets — all icons are
-inline SVG. Node.js is a **dev-time-only** requirement now (lint/build
-tooling below) — it never ships; the deployed page still has zero runtime
-dependencies beyond the CDN scripts.
+**Stack:** One React JSX file. `sandbox.html` (dev) still runs it through
+Babel standalone + React 18 UMD from cdnjs for zero-setup live iteration.
+The **deployed app is precompiled**: `scripts/build_html.py` bundles the
+JSX + React with esbuild into `assets/app.js`, self-hosts the Barlow
+fonts, and emits a PWA (manifest, icons, cache-first service worker) — no
+CDN, no in-browser Babel, works offline and installs to the home screen.
+Persistence via `window.storage` API (Claude artifact) shimmed to
+`localStorage` in the standalone build (`fc:` key prefix). No backend, no
+accounts, no external runtime requests. Node.js (ESLint + esbuild) is a
+**dev-time-only** requirement — run `npm ci` once per clone.
 
 **Files:**
 
@@ -39,18 +42,27 @@ dependencies beyond the CDN scripts.
 - `fitness-corner-generator.jsx` — canonical source (Claude artifact form).
   Synced from `sandbox.html` via `scripts/sync_jsx.py` (part of
   `npm run release`) at commit checkpoints, not continuously.
-- `index.html` — **generated, never hand-edited.** Produced from
-  `fitness-corner-generator.jsx` by `scripts/build_html.py` (wraps it in
-  the CDN scripts + localStorage storage shim + HTML skeleton). This is
-  the file committed/deployed to GitHub Pages.
+- `index.html`, `assets/app.js`, `assets/fonts/*`, `sw.js`,
+  `manifest.webmanifest` — **generated, never hand-edited.** Produced
+  from `fitness-corner-generator.jsx` by `scripts/build_html.py`
+  (esbuild bundle + iOS/PWA meta + inline @font-face + localStorage shim
+  + SW registration; the artifact's Google Fonts `@import` line is
+  stripped in the build). These are what GitHub Pages serves.
+- `icons/` — `icon.svg` is the source; the PNGs (192, 512, maskable 512,
+  180 apple-touch, 32 favicon) are rendered from it (any SVG renderer /
+  headless Chrome) and committed.
+- `_config.yml` — Jekyll `exclude:` so Pages serves only the built app
+  (not `sandbox.html`, sources or docs).
 - `exercises.md` — source-of-truth exercise library (see Data model below);
   edit this, not the `EXERCISES` array directly.
 - `scripts/build_exercises.py` — regenerates the `EXERCISES` array in both
   `sandbox.html` and `fitness-corner-generator.jsx` from `exercises.md`
   (stdlib-only Python, no dependencies; run after editing the doc).
-- `scripts/build_html.py` — regenerates `index.html` from
-  `fitness-corner-generator.jsx` (stdlib-only Python). Run this after
-  syncing the `.jsx`, before committing.
+- `scripts/build_html.py` — builds the deployable PWA from
+  `fitness-corner-generator.jsx` (stdlib Python that shells out to
+  `node_modules/.bin/esbuild`). SW cache name = hash of every precached
+  file, so any change ships a fresh cache; the page shows a "New version
+  ready — tap to reload" pill when a new SW takes over.
 - `scripts/sync_jsx.py` — regenerates `fitness-corner-generator.jsx` from
   `sandbox.html` (stdlib-only Python). Automates the "port sandbox changes
   into the canonical `.jsx`" step — don't hand-copy between the two.
@@ -271,8 +283,12 @@ the `.githooks/pre-commit` hook runs it automatically whenever
 `sandbox.html` or `exercises.md` is staged, and aborts the commit
 entirely if it fails (e.g. a real lint error). Running `npm run release`
 directly is still fine any time you want to check sooner than a commit.
-Same URL, ~1–2 min propagation after push. localStorage is per-browser-
-per-device (no sync) — accepted beta constraint.
+Same URL, ~1–2 min propagation after push. Installed/offline users get
+the new version on the next launch after the SW updates (pill prompts a
+reload). localStorage is per-browser-per-device (no sync) — accepted
+beta constraint; the Log tab's Export/Import is the backup path. Keys are
+unchanged across the PWA move (same origin + `fc:` prefix), so existing
+data carries over.
 
 ### Content sources & attribution
 
@@ -391,6 +407,13 @@ Format: `[decision] what — why. (supersedes: none unless noted)`
   supine elbow press; Pike push-up L1→L2 (6–10 reps is not a first-day
   move). No-bar pulls stay honest stand-ins — no towel/door hacks
   (no-external-load rule).
+- [pwa] Precompile + bundle instead of in-browser Babel/CDN, plus a
+  cache-first SW, manifest and iOS meta — Babel standalone was ~2.8 MB
+  parsed on every load (~5.5 s on a throttled phone) and nothing worked
+  without signal at the park. sandbox.html keeps the CDN/Babel setup for
+  dev; SW only serves the app shell for `./` and `index.html` so local
+  dev pages aren't hijacked. Screen Wake Lock held while a session runs.
+  (supersedes: "no build step for the deployed app" in Stack)
 - [content-authoring] Exercise data moved from hand-edited `EXERCISES`
   array to `exercises.md` + `scripts/build_exercises.py` generator — the
   raw JS array (single-line-per-entry, ~124 entries) was hard to browse

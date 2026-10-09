@@ -22,9 +22,14 @@
   },
   "homepage": "https://github.com/stewlivecrew/fitness-corner#readme",
   "devDependencies": {
+    "@fontsource/barlow": "^5.3.0",
+    "@fontsource/barlow-condensed": "^5.3.0",
+    "esbuild": "^0.24.2",
     "eslint": "^9.39.5",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
-    "globals": "^17.7.0"
+    "globals": "^17.7.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
   }
 }

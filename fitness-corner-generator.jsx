@@ -729,6 +729,28 @@ function FitnessCornerGenerator() {
     return () => clearInterval(id);
   }, [phase]);
 
+  // Keep the screen awake while a session runs (Screen Wake Lock API, where
+  // supported — iOS 16.4+, Chrome/Android). Re-acquired when you come back to
+  // the app, since the OS drops the lock whenever the page is hidden.
+  const [wakeOn, setWakeOn] = useState(false);
+  useEffect(() => {
+    if (phase !== "running" || typeof navigator === "undefined" || !("wakeLock" in navigator)) return;
+    let lock = null; let cancelled = false;
+    const acquire = async () => {
+      try {
+        if (document.visibilityState !== "visible") return;
+        lock = await navigator.wakeLock.request("screen");
+        if (cancelled) { lock.release(); return; }
+        setWakeOn(true);
+        lock.addEventListener("release", () => setWakeOn(false));
+      } catch { setWakeOn(false); }
+    };
+    const onVis = () => { if (document.visibilityState === "visible") acquire(); };
+    acquire();
+    document.addEventListener("visibilitychange", onVis);
+    return () => { cancelled = true; document.removeEventListener("visibilitychange", onVis); if (lock) lock.release().catch(() => {}); setWakeOn(false); };
+  }, [phase]);
+
   const { session, athletic } = useMemo(() => {
     const s = buildSession(focus, level, eq, adjs, patternMem, gen.seed, gen.avoid, gen.vslot);
     const used = new Set(s.filter((x) => !x.missing).map((x) => x.pick.name));
@@ -1328,7 +1350,7 @@ function FitnessCornerGenerator() {
               <>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, background: T.greenDark, borderRadius: 10, padding: "10px 14px", marginBottom: format === "circuit" ? 8 : 14 }}>
                   <span className="disp" style={{ color: T.yellow, fontWeight: 800, fontSize: 26, letterSpacing: "0.04em", flex: 1 }}>{fmtT(elapsedSec)}</span>
-                  <span style={{ color: "rgba(255,255,255,0.75)", fontSize: 12.5 }}>{Object.keys(done).length} ✓ · covers warm-up to cool-down</span>
+                  <span style={{ color: "rgba(255,255,255,0.75)", fontSize: 12.5 }}>{Object.keys(done).length} ✓ · covers warm-up to cool-down{wakeOn ? " · 🔆 screen stays on" : ""}</span>
                   <button onClick={finishSession} className="disp" style={{ background: T.yellow, color: T.greenDark, border: "none", borderRadius: 8, padding: "8px 14px", fontWeight: 800, fontSize: 14, textTransform: "uppercase" }}>
                     Finish
                   </button>

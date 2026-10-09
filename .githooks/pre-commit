@@ -31,7 +31,7 @@ if [ "$need_release" = true ]; then
     echo "Fix the error above, then commit again."
     exit 1
   fi
-  git add sandbox.html fitness-corner-generator.jsx index.html
+  git add sandbox.html fitness-corner-generator.jsx index.html assets sw.js manifest.webmanifest
   echo "pre-commit: synced sandbox.html -> fitness-corner-generator.jsx -> index.html and staged the results."
 fi
 
