@@ -224,13 +224,22 @@ Exercise entry schema (compiled `EXERCISES` array, generated — read-only):
   folded into memory on save — the level you finished at becomes the
   baseline (`adjs` = delta vs level + memory; `bump()` steps from the
   displayed effective level so button state and effect always agree).
+- **Lever machines only demote.** Stations whose exercise needs a lever
+  machine (`LEVER_IDS`: chestPress, latPulldown, shoulderPressM,
+  legPressM) are logged with `lever: true`; on save their "too easy" is
+  ignored and positive Harder+ steps aren't folded into memory. "Too
+  hard" and Easier still lower the pattern. Memory is per pattern, so a
+  light fixed-resistance machine must not promote you onto pull-ups.
 - `resolvePicks()` is the single source of what each station displays
   (swap offset applied, never duplicating an earlier station's exercise);
   render, coverage, ratings and the log all read `picks`. Equipment /
   focus / level changes call `resetTweaks()` to drop stale swaps/steps.
 - Storage keys: `fc-corners` (name → equipment[]), `fc-log` (sessions,
   newest first, cap 100), `fc-levels` ({mem, streak}), `fc-finisher`
-  (finisher history), `fc-settings`
+  (finisher history), `fc-test` ({history: newest first, cap 20;
+  offered; barCheckDismissed; snoozeUntil}), `fc-test-active` (an
+  in-progress test, resumed after reload if < 12 h old; excluded from
+  backups), `fc-settings`
   (last eq/level/focus/sets/format/toggles/activeCorner — restored on
   load; powers "▶ Go — same as last time" and per-corner ▶ Go).
   `fc-active` ({phase, startTs, done, ratings, gen, swaps, adjs} —
@@ -243,6 +252,56 @@ Exercise entry schema (compiled `EXERCISES` array, generated — read-only):
   try/catch; missing storage degrades gracefully with a visible banner.
 - Named-corner chip deselects the moment equipment is edited — the
   highlight means "selection IS this corner", nothing looser.
+
+### Fitness test (onboarding + retest)
+
+Gated, capped field test that seeds every pattern's level; auto-level
+then refines it. Cut-offs answer "which tier of OUR exercises can you do
+cleanly" (r/bodyweightfitness RR rule: work at the hardest variation you
+can do 3×5–8, move up at 3×8), sanity-checked against ACSM push-up
+norms, US Army AFT (15 HRP men 17–21, plank 1:30 min), USMC pull-ups,
+CDC chair stand, Freckleton single-leg bridge, heel-raise norms and
+KOT's 10 pull-ups. No age/sex input, no run. Full research + sources:
+see the design doc summarised in the `[fitness-test]` decision entry.
+
+- **Flow:** intro (first open: auto-offered, "Skip — I'll pick a level")
+  → PAR-Q+ 7 questions + "anything hurting?" + "unwell / too hot?" →
+  setup (bar? bench?) → 2–3 min warm-up → items → results → apply.
+  Any PAR-Q yes → no max tests, every pattern Beginner. Unwell/hot →
+  "test another day". Pain area → skip items loading it (pattern
+  Beginner). "I don't feel right" on every item → stop screen (995),
+  nothing saved. Stop rules shown on safety screen + every item.
+- **Items** (gate → measure → optional extra; caps stop the effort):
+  push (5 knee → full push-ups cap 30: <5 L1, 5–14 L2, 15–29 L3, 30 L4;
+  pike check only at L2) · legs (10 squats → split squats/weaker leg cap
+  10: <10 L2, 10 L3, +5 single-leg bench stand-ups L4; no bench caps L3)
+  · pull (10 s hang → pull-ups cap 10: 0 + 3 s negative L2 else L1, 1–4
+  L2, 5–9 L3, 10 L4) · single-leg bridge (10 two-leg → cap 20: <10 L1,
+  10–19 L2, 20 L3 — **test never gives hip L4**, Nordics) · plank (cap
+  90 s: <30 L1, <90 L2, 90 L3, +5 hanging straight-leg raises L4) ·
+  dead hang last (cap 90: <20 L1, <45 L2, <90 L3, 90 L4; skipped if the
+  10 s hang failed). No bar: calf raise instead (cap 25: <10, <25, 25 =
+  L3 max), no pull items.
+- **Inferred:** verticalPush = push − 1 (pike check can lift L1→L2);
+  horizontalPull = verticalPull; no bar → both pulls = min(push, 2),
+  flagged `estimated`; athletic `ath-*` = min(global, 2).
+- **Apply:** global level = floor(median of 8); `mem[p] = level_p −
+  global`; streaks cleared. Results screen shows 8 rows (level, reason,
+  flag, −/+). Retest rule: a pattern auto-level raised (current effective
+  level > last applied test level, or > self-picked level) is **kept**
+  if the test comes out lower, with a note — user taps − to accept.
+  "Save results, keep my current levels" stores without applying.
+- **Bar check** (mode `bar`: pull + hang): offered on the Equipment tab
+  when the last test had no bar and a bar is ticked (not within 3 h of
+  that test; "Not now" persists), and always from the Log card. Merges
+  into the latest record, updates only verticalPull/horizontalPull/grip.
+- The test's dead hang seeds `fc-finisher` (corner "Fitness test").
+- **Access:** Equipment tab shows "Take the fitness test" until one is
+  completed; Log tab card shows before/after raw numbers + levels,
+  "Retest" and (if estimated) "Bar check"; 8-week (`RETEST_DAYS`)
+  reminder banner on Equipment ("In a week" snoozes 7 days).
+- `scoreTest()` / `medianLevel()` / `testMetrics()` are pure — test them
+  outside React when changing thresholds.
 
 ### Content style rules (enforce on every DB edit)
 
@@ -321,9 +380,10 @@ data carries over.
 
 1. **Field-test feedback loop** (current) — beginner comprehension of
    guides, sweaty-thumb tap targets, does session #2 happen.
-2. **Fitness test onboarding** — 5-min test sets all 8 pattern levels
-   automatically; repeatable quarterly. Replaces self-declared level and
-   feeds auto-progression.
+2. ~~**Fitness test onboarding**~~ — shipped (see Layer 2 > Fitness
+   test): ~8-min gated test sets all 8 pattern levels; retest reminder
+   every 8 weeks; feeds auto-progression. Next: optional age-norm
+   context, optional run, per-item retest.
 3. **Gear tab** (personal accessories, distinct from Equipment):
    Equipment = property of the place; Gear = property of the person
    (persists across sessions, unioned with corner equipment at
@@ -475,6 +535,24 @@ Format: `[decision] what — why. (supersedes: none unless noted)`
   before a commit was created (confirmed via `git log`). `core.hooksPath`
   is a per-clone git setting, not something a tracked file can force on
   its own — `scripts/install_hooks.sh` exists because of that gap.
+
+- [fitness-test] One overall test that sets per-PATTERN levels, not a
+  level per equipment — strength belongs to the movement; equipment is
+  already handled by tiers + "equipment wins". Cut-offs are capability
+  gates on our own tiers (RR 3×5–8 rule), not population percentiles,
+  so no age/sex input. Gated (easiest first), capped, clean-rep stop,
+  PAR-Q+ screen; conservative caps (hip ≤ L3; no bar/bench ≤ L3) and
+  "round down when unsure". Retest every 8 weeks (was "quarterly").
+  Sources: RR redditbwf.github.io/wiki/recommended_routine.html;
+  PAR-Q+ eparmedx.com; ACSM push-up norms; army.mil/aft; USMC PFT
+  tables; Strand 2014 plank (PMID 25031677); CDC STEADI chair stand;
+  Freckleton 2014 bridge (PMID 23918443); heel-raise review
+  PMC9246404; dead hang has NO validated norms (cut-offs are judgment).
+- [lever-demote-only] Lever-machine stations can lower a pattern's
+  memory but never raise it ("too easy" ignored, Harder+ not folded) —
+  memory is per pattern, and a light fixed-resistance pulldown said
+  nothing about pull-ups. (supersedes: part of [progression] for lever
+  stations only)
 
 ### Known limitations (honest list)
 
