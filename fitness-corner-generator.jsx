@@ -458,12 +458,18 @@ function buildSession(focus, level, eq, adjs, mem, seed = 1, avoidList = [], vsl
   });
 }
 
-function buildAthletic(level, eq, used, adjs) {
-  // 1 skill primer (coordination, low fatigue) + 2 explosive drills, done while fresh.
+// Athletic block adapts to focus: upper-body days drop the reactive hop drill,
+// core & grip days drop the max-effort jump.
+const ATH_KINDS = { full: ["skill", "power", "elastic"], lower: ["skill", "power", "elastic"], upper: ["skill", "power"], coreGrip: ["skill", "elastic"] };
+const ATH_LABEL = { skill: "Movement skill", power: "Explosive power", elastic: "Reactive / elastic" };
+const memLabel = (p) => PATTERNS[p] || ({ "ath-skill": "Athletic · movement skill", "ath-power": "Athletic · power", "ath-elastic": "Athletic · reactive" })[p] || p;
+
+function buildAthletic(level, eq, used, adjs, kinds = ATH_KINDS.full, mem = {}) {
+  // 1 skill primer (coordination, low fatigue) + explosive drill(s), done while fresh.
   // Deterministic on purpose: power and skill improve by repeating drills, not rotating them.
-  return [{ kind: "skill" }, { kind: "power" }, { kind: "elastic" }].map(({ kind }, j) => {
+  return kinds.map((kind, j) => {
     const key = "a" + j;
-    const effLevel = Math.min(4, Math.max(1, level + (adjs[key] || 0)));
+    const effLevel = Math.min(4, Math.max(1, level + (adjs[key] || 0) + (mem["ath-" + kind] || 0)));
     let pool = EXERCISES.filter(
       (e) => e.ath === kind && e.lvl <= effLevel && e.req.every((r) => eq.includes(r)) && !used.has(e.name)
     ).sort((a, b) => b.lvl - a.lvl);
@@ -726,7 +732,7 @@ function FitnessCornerGenerator() {
   const { session, athletic } = useMemo(() => {
     const s = buildSession(focus, level, eq, adjs, patternMem, gen.seed, gen.avoid, gen.vslot);
     const used = new Set(s.filter((x) => !x.missing).map((x) => x.pick.name));
-    const a = power ? buildAthletic(level, eq, used, adjs) : [];
+    const a = power ? buildAthletic(level, eq, used, adjs, ATH_KINDS[focus], patternMem) : [];
     return { session: s, athletic: a };
   }, [focus, level, eq, adjs, power, patternMem, gen]);
 
@@ -831,6 +837,13 @@ function FitnessCornerGenerator() {
       const ex = picks.main[i];
       return { pattern: s.pattern, name: ex.name, lvl: ex.lvl, doneAt: done[i] ?? null, rating: ratings[i] || null, adj: adjs[i] || 0 };
     }).filter(Boolean);
+    // Athletic stations are rated, logged and auto-levelled like the others.
+    const athStations = athletic.map((s, j) => {
+      if (s.missing) return null;
+      const ex = picks.ath[j]; const k = "a" + j;
+      return { pattern: "ath-" + s.kind, name: ex.name, lvl: ex.lvl, doneAt: done[k] ?? null, rating: ratings[k] || null, adj: adjs[k] || 0, athletic: true };
+    }).filter(Boolean);
+    stations.unshift(...athStations);
     const entry = {
       date: new Date().toISOString(), corner: activeCorner || "Unnamed corner", focus: FOCUS[focus].label, vslot: focus === "full" ? (gen.vslot || "pull") : undefined,
       durationSec: startTs ? Math.floor((Date.now() - startTs) / 1000) : 0, stations, format,
@@ -948,6 +961,63 @@ function FitnessCornerGenerator() {
   const needsUpperPrep = todayPatterns.some((p) => ["verticalPush", "verticalPull", "horizontalPush", "horizontalPull"].includes(p));
   const needsLowerPrep = todayPatterns.some((p) => ["kneeDominant", "hipDominant", "gripAthletic"].includes(p));
   const needsGripPrep = todayPatterns.includes("gripAthletic");
+
+  // ---- Warm-up / cool-down content: equipment + focus + level aware ----
+  const byLvl = (arr) => arr[Math.min(level, arr.length) - 1];
+  const hasBar = eq.includes("highBar") || eq.includes("monkeyBars");
+  const warmupItems = [
+    { n: level === 1 ? "Easy walk" : "Easy jog or brisk walk", d: byLvl(["3 min", "3 min", "3–4 min", "4–5 min"]), h: "To the corner or a lap around it — just enough to feel warm.", show: true },
+    { n: "Arm circles", d: byLvl(["8 each way", "10 each way", "10 each way", "12 each way"]), h: "Stand tall and make big, slow circles with straight arms — forward first, then backward.", show: needsUpperPrep },
+    { n: "Leg swings", d: byLvl(["8 / leg, each direction", "10 / leg, each direction", "10 / leg, each direction", "12 / leg, each direction"]), h: "Hold something for balance and swing one leg front-to-back, then side-to-side, then switch legs.", show: needsLowerPrep },
+    { n: "Wrist circles + stretch", d: "10 each way + 15s", h: "Circle both wrists 10 times each direction. Then press your palms together in front of your chest with fingers pointing up, and lower your hands toward your waist, keeping palms together, until you feel a stretch across both forearms.", show: needsUpperPrep || needsGripPrep },
+    { n: "Scap push-ups", d: byLvl(["", "8 reps", "10 reps", "10 reps"]), h: "Get into a push-up position (knees down is fine). Keeping your arms straight, let your chest sink so your shoulder blades squeeze together, then push the ground away to spread them apart.", show: needsUpperPrep && level >= 2 },
+    { n: "Squat-to-stand", d: byLvl(["3 reps", "5 reps", "5 reps", "6 reps"]), h: "Bend down and grab your toes with straight-ish legs, then pull your hips down into a deep squat with your chest up, then straighten your legs back to the toe-grab. That's one rep.", show: needsLowerPrep },
+    { n: "Heel walks + toe walks", d: byLvl(["10m each", "15m each", "15m each", "20m each"]), h: "Walk on your heels with your toes lifted high, then walk up on your tiptoes. Wakes up the shins, calves and ankles before they take load.", show: needsLowerPrep },
+    { n: "Tibialis raise (wall lean)", d: byLvl(["8–10 reps", "10–12 reps", "10–12 reps", "12–15 reps"]), h: "Stand with your back against a wall or post and walk your heels about 30cm out, so you're leaning back slightly. Keeping your legs straight, lift your toes and the front of your feet as high as you can, then lower. A light prep set — the full working set shows up later if your session trains this pattern.", show: needsLowerPrep },
+    { n: "World's Greatest Stretch", d: byLvl(["2 / side", "3 / side", "3 / side", "4 / side"]), h: "Step into a long lunge — say right foot forward — and place both hands on the ground inside your front foot. The arm on the same side as the front leg is the one that moves: keep the left hand planted and sweep your right arm up toward the sky, opening your chest toward your front-leg side and following the hand with your eyes. Bring it down, then swap sides — left foot forward, left arm up. Hip flexors, hamstrings, and upper-back rotation in one move.", show: true },
+    { n: level === 1 ? "Supported bar hang" : "Easy bar hang", d: byLvl(["15s", "15s", "20s", "20s + 5 scap pulls"]), h: level === 1 ? "Hold the bar with your feet still on the ground or a step, and bend your knees to let some of your weight hang. Relax your shoulders and breathe." : "A relaxed hang to wake up the grip and shoulders." + (level >= 4 ? " Then, still hanging, pull your shoulder blades down 5 times without bending your elbows." : ""), show: needsUpperPrep && hasBar },
+    { n: "Pogo hops (easy)", d: "2 × 10", h: "Small, springy hops on the balls of your feet with stiff ankles and soft knees — primes the calves and tendons for jumping.", show: needsLowerPrep && level >= 3 },
+  ].filter((m) => m.show);
+  const hold = (a) => byLvl(a);
+  const cooldownItems = [
+    {
+      ...(hasBar
+        ? { n: "Dead hang", d: hold(["20–30s", "30–45s", "45–60s", "60s"]), h: "Grab the bar and just hang with straight arms" + (level === 1 ? " — keep your toes on the ground if you need to." : ", feet off the ground.") + " Let your shoulders relax up toward your ears and breathe slowly — this decompresses the spine." }
+        : { n: "Cross-body shoulder stretch", d: hold(["20s / side", "30s / side", "30s / side", "45s / side"]), h: "Stand tall and bring one straight arm across the front of your body at chest height. Use your other forearm to gently press it closer to your chest, then switch sides." }),
+      show: needsUpperPrep,
+    },
+    { n: "Standing chest stretch", d: hold(["20s", "30s", "30–45s", "45s"]), h: "Stand tall, clasp your hands together behind your lower back, and straighten your arms. Lift your chest and gently raise your clasped hands away from your body until you feel a stretch across the front of your shoulders and chest.", show: needsUpperPrep },
+    { n: "Overhead triceps stretch", d: hold(["20s / side", "30s / side", "30s / side", "45s / side"]), h: "Reach one arm straight up, then bend that elbow so your hand drops behind your head. Use your other hand to gently press on that elbow, then switch sides.", show: needsUpperPrep },
+    { n: "Wrist + forearm stretch", d: hold(["15s / side, both ways", "20s / side, both ways", "20s / side, both ways", "30s / side, both ways"]), h: "Hold one arm straight out in front, palm up. Use your other hand to gently pull the fingers back toward you, then flip the palm down and gently pull the fingers down and in, feeling the stretch on both sides of the forearm before switching arms.", show: needsUpperPrep || needsGripPrep },
+    { n: level === 1 ? "Supported deep squat hold" : "Deep squat hold", d: hold(["30s", "60s", "60–90s", "90s"]), h: (level === 1 ? "Hold a post or rail in front of you for balance. " : "") + "Squat all the way down until your bottom is near your heels, feet flat on the ground about shoulder width. Put your elbows inside your knees and gently press them outward. Hold and breathe.", show: needsLowerPrep },
+    {
+      ...(eq.includes("parallelBars") || eq.includes("lowBar")
+        ? { n: "Supported hamstring hinge", d: hold(["30s", "60s", "60s", "60–90s"]), h: "Hold the bar with both hands at arm's length and step back. Keeping your back flat and knees almost straight, push your hips backward until you feel a stretch down the back of your thighs." }
+        : eq.includes("bench")
+          ? { n: "Supported hamstring hinge", d: hold(["30s", "60s", "60s", "60–90s"]), h: "Put both hands on a bench or ledge and step back. Keeping your back flat and knees almost straight, push your hips backward until the back of your thighs stretches." }
+          : { n: "Standing forward fold", d: hold(["30s", "60s", "60s", "60–90s"]), h: "Stand with feet hip-width, bend your knees slightly, and fold forward at the hips, letting your head and arms hang heavy toward the ground. Sway gently." }),
+      show: needsLowerPrep,
+    },
+    {
+      ...(eq.includes("bench")
+        ? { n: "Couch stretch", d: hold(["20–30s / side", "30–45s / side", "45s / side", "60s / side"]), h: "Kneel facing away from the bench and place the top of one foot up on its edge behind you, that knee on the ground, other foot planted in front. Tuck your tailbone and lift your chest tall until you feel a deep stretch down the front of the back leg's hip and thigh." }
+        : { n: "Hip flexor stretch", d: hold(["20s / side", "30s / side", "45s / side", "60s / side"]), h: "Kneel on one knee like a marriage proposal, other foot flat in front. Tuck your tailbone under and shift your whole body slightly forward until you feel a stretch down the front of the hip on the kneeling side." }),
+      show: needsLowerPrep,
+    },
+    { n: "Calf stretch", d: hold(["20s / side, ×2", "30s / side, ×2", "30s / side, ×2", "45s / side, ×2"]), h: "Hands against a post or wall, step one foot back with the heel down and that leg straight — hold. Then bend that back knee slightly, heel still down, to move the stretch lower into the calf — hold again. Switch legs.", show: needsLowerPrep },
+    {
+      ...(eq.includes("bench")
+        ? { n: "Pigeon stretch (bench)", d: hold(["20–30s / side", "30–45s / side", "45s / side", "60s / side"]), h: "Stand facing the bench and lay one shin sideways along the top of it, knee and foot both resting on the bench. Keep your back leg straight behind you and lean your chest gently forward over the front shin until the outside of that hip stretches." }
+        : { n: "Pigeon stretch (floor)", d: hold(["20–30s / side", "30–45s / side", "45s / side", "60s / side"]), h: "Sit and cross one ankle over the opposite knee in a figure-4 shape, then hug the bottom knee toward your chest until the outside of the crossed leg's hip stretches." }),
+      show: needsLowerPrep,
+    },
+    { n: "Pancake or butterfly stretch", d: level >= 3 ? "60–90s" : "60s · optional", h: "Sit with your legs spread wide (pancake) or with the soles of your feet pressed together, knees out (butterfly). Keep your back long and lean your chest forward until the inner thighs stretch.", show: needsLowerPrep && level >= 2 },
+  ].filter((m) => m.show);
+  const blockStatus = (key, closeFn) => phase === "running" && (done[key] == null ? (
+    <button onClick={() => { markDone(key); closeFn(false); }} className="disp" style={{ background: T.yellow, color: T.greenDark, border: "none", borderRadius: 6, padding: "6px 12px", fontWeight: 800, fontSize: 12, textTransform: "uppercase" }}>✓ Done</button>
+  ) : (
+    <span className="disp done-check-pop" style={{ color: T.green, fontWeight: 800, fontSize: 13 }}>✓ at {fmtT(done[key])}</span>
+  ));
 
   return (
     <div style={{ minHeight: "100vh", background: T.bg, color: T.ink, fontFamily: "'Barlow', system-ui, sans-serif" }}>
@@ -1200,7 +1270,7 @@ function FitnessCornerGenerator() {
                 <div><strong style={{ color: T.ink }}>1.</strong> Movement-skill drill — crawls, traverses, balance</div>
                 <div><strong style={{ color: T.ink }}>2.</strong> Max-effort power drill — jumps, bounds</div>
                 <div><strong style={{ color: T.ink }}>3.</strong> Reactive drill — pogo hops, toe taps, line hops</div>
-                <div style={{ marginTop: 6 }}>Sits right after the warm-up, while you're fresh — power quality dies when you're fatigued.</div>
+                <div style={{ marginTop: 6 }}>Sits right after the warm-up, while you're fresh — power quality dies when you're fatigued. Upper-body days skip the hop drill; core &amp; grip days skip the max-effort jump. Drills are rated and auto-levelled like everything else.</div>
               </div>
             </Field>
             <Field label="Cool-down flow — optional">
@@ -1307,12 +1377,13 @@ function FitnessCornerGenerator() {
                 <div style={{ fontSize: 12.5, color: T.steel, marginTop: 2 }}>
                   Any Harder + / − Easier taps are remembered. On top of that, "too easy" two sessions in a row promotes that pattern; "too hard" steps it back immediately.
                 </div>
-                {session.map((s, i) => {
-                  if (s.missing) return null;
-                  const ex = picks.main[i];
+                {[
+                  ...athletic.map((s, j) => (s.missing ? null : { key: "a" + j, label: "A" + (j + 1), ex: picks.ath[j] })),
+                  ...session.map((s, i) => (s.missing ? null : { key: i, label: String(i + 1), ex: picks.main[i] })),
+                ].filter(Boolean).map(({ key: i, label, ex }) => {
                   return (
                     <div key={i} style={{ marginTop: 10 }}>
-                      <div style={{ fontSize: 13.5, fontWeight: 600, color: T.ink }}>{i + 1}. {ex.name}</div>
+                      <div style={{ fontSize: 13.5, fontWeight: 600, color: T.ink }}>{label}. {ex.name}</div>
                       <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
                         {[["easy", "Too easy"], ["right", "Just right"], ["hard", "Too hard"]].map(([val, lbl]) => (
                           <button
@@ -1353,107 +1424,68 @@ function FitnessCornerGenerator() {
               </div>
             )}
             {warmup && (
-            <div style={{ background: T.card, border: `2px solid ${T.line}`, borderRadius: 10, padding: "12px 14px", marginBottom: 14 }}>
-              <div style={{ display: "flex", alignItems: "center" }}>
-                <button
-                  onClick={() => setWarmupOpen((o) => !o)}
-                  className="disp"
-                  style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, background: "transparent", border: "none", padding: 0, textAlign: "left", cursor: "pointer", fontWeight: 800, fontSize: 15, textTransform: "uppercase", letterSpacing: "0.08em", color: T.green }}
-                >
-                  <span style={{ display: "inline-block", transition: "transform 0.15s", transform: warmupOpen ? "rotate(90deg)" : "rotate(0deg)" }}>▸</span>
-                  Warm-up · 5 min · dynamic
-                </button>
-                {phase === "running" && (done["warmup"] == null ? (
-                  <button onClick={() => { markDone("warmup"); setWarmupOpen(false); }} className="disp" style={{ background: T.yellow, color: T.greenDark, border: "none", borderRadius: 6, padding: "5px 12px", fontWeight: 800, fontSize: 12, textTransform: "uppercase" }}>✓ Done</button>
-                ) : (
-                  <span className="disp done-check-pop" style={{ color: T.green, fontWeight: 800, fontSize: 13 }}>✓ at {fmtT(done["warmup"])}</span>
-                ))}
-              </div>
-              {warmupOpen && (
-                <div className="panel-reveal">
-                  <div style={{ fontSize: 12.5, color: T.steel, marginTop: 8 }}>
-                    Movement, not holds — rehearse the positions, raise the temperature. Save long stretches for after.
-                  </div>
-                  {[
-                    { n: "Easy jog or brisk walk", d: "to the corner", h: null, show: true },
-                    { n: "Arm circles", d: "10 each way", h: "Stand tall and make big, slow circles with straight arms — 10 forward, then 10 backward.", show: needsUpperPrep },
-                    { n: "Leg swings", d: "10 / leg, each direction", h: "Hold something for balance and swing one leg front-to-back 10 times, then side-to-side 10 times, then switch legs.", show: needsLowerPrep },
-                    { n: "Wrist circles + stretch", d: "10 each way + 15s", h: "Circle both wrists 10 times each direction. Then press your palms together in front of your chest with fingers pointing up, and lower your hands toward your waist, keeping palms together, until you feel a stretch across both forearms.", show: needsUpperPrep || needsGripPrep },
-                    { n: "Squat-to-stand", d: "5 reps", h: "Bend down and grab your toes with straight-ish legs, then pull your hips down into a deep squat with your chest up, then straighten your legs back to the toe-grab. That's one rep.", show: needsLowerPrep },
-                    { n: "Heel walks + toe walks", d: "15m each", h: "Walk on your heels with your toes lifted high for 15 metres, then walk up on your tiptoes for 15 metres. Wakes up the shins, calves and ankles before they take load.", show: needsLowerPrep },
-                    { n: "Tibialis raise (wall lean)", d: "10–12 reps", h: "Stand with your back against a wall or post and walk your heels about 30cm out, so you're leaning back slightly. Keeping your legs straight, lift your toes and the front of your feet as high as you can, then lower. A light prep set — the full working set shows up later if your session trains this pattern.", show: needsLowerPrep },
-                    { n: "World's Greatest Stretch", d: "3 / side", h: "Step into a long lunge — say right foot forward — and place both hands on the ground inside your front foot. The arm on the same side as the front leg is the one that moves: keep the left hand planted and sweep your right arm up toward the sky, opening your chest toward your front-leg side and following the hand with your eyes. Bring it down, then swap sides — left foot forward, left arm up. Hip flexors, hamstrings, and upper-back rotation in one move.", show: true },
-                    { n: "Easy bar hang", d: "15s", h: "If there's a bar — a relaxed hang to wake up the grip and shoulders. Skip if not.", show: needsUpperPrep },
-                  ].filter((m) => m.show).map((m, j) => (
-                    <div key={j} style={{ marginTop: j === 0 ? 8 : 8 }}>
-                      <div style={{ fontSize: 14, color: T.ink, fontWeight: 600 }}>
-                        {j + 1}. {m.n} <span style={{ color: T.green, fontWeight: 700 }}>— {m.d}</span>
-                      </div>
-                      {m.h && <div style={{ fontSize: 12.5, color: T.steel, marginTop: 2, lineHeight: 1.45 }}>{m.h}</div>}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+              <BlockCard
+                id="warmup"
+                title="Warm-up"
+                meta={`${level === 1 ? 4 : 5} min · dynamic`}
+                open={warmupOpen}
+                onToggle={() => setWarmupOpen((o) => !o)}
+                status={blockStatus("warmup", setWarmupOpen)}
+                intro="Movement, not holds — rehearse the positions, raise the temperature. Save long stretches for after."
+              >
+                {warmupItems.map((m, j) => <BlockItem key={j} j={j} {...m} />)}
+              </BlockCard>
             )}
 
             {power && athletic.some((s) => !s.missing) && (
-              <>
-                <div style={{ background: T.card, border: `2px solid ${T.green}`, borderRadius: 10, padding: "10px 14px", marginBottom: athleticOpen ? 12 : 14 }}>
-                  <div style={{ display: "flex", alignItems: "center" }}>
-                    <button
-                      onClick={() => setAthleticOpen((o) => !o)}
-                      className="disp"
-                      style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, background: "transparent", border: "none", padding: 0, textAlign: "left", cursor: "pointer", fontWeight: 800, fontSize: 15, textTransform: "uppercase", letterSpacing: "0.08em", color: T.green }}
-                    >
-                      <span style={{ display: "inline-block", transition: "transform 0.15s", transform: athleticOpen ? "rotate(90deg)" : "rotate(0deg)" }}>▸</span>
-                      Athletic block · while fresh
-                    </button>
-                    {phase === "running" && (() => {
-                      const total = athletic.filter((s) => !s.missing).length;
-                      const doneCount = athletic.filter((s, j) => !s.missing && done["a" + j] != null).length;
-                      return (
-                        <span className="disp done-check-pop" key={doneCount} style={{ color: T.green, fontWeight: 800, fontSize: 13 }}>
-                          {doneCount}/{total} ✓
-                        </span>
-                      );
-                    })()}
-                  </div>
-                  {athleticOpen && (
-                    <div className="panel-reveal" style={{ fontSize: 13, color: T.steel, marginTop: 8, lineHeight: 1.45 }}>
-                      Three jobs, one block: a movement-skill primer to wake up coordination, one max-effort power drill, and one springy reactive drill for footwork and ankle stiffness. All done fresh — stop each drill while reps are still crisp; this is about speed and precision, never fatigue.
-                    </div>
-                  )}
-                </div>
-                {athleticOpen && athletic.map((s, j) => {
-                  if (s.missing) return null;
-                  const k = "a" + j;
-                  const ex = picks.ath[j];
-                  const setsText = ex.reps.includes("×") ? ex.reps : (s.kind === "skill" ? `2 × ${ex.reps}` : `3 × ${ex.reps}`);
+              <BlockCard
+                id="athletic"
+                title="Athletic block"
+                meta={`${athletic.filter((s) => !s.missing).length} drills · while fresh`}
+                open={athleticOpen}
+                onToggle={() => setAthleticOpen((o) => !o)}
+                status={phase === "running" && (() => {
+                  const total = athletic.filter((s) => !s.missing).length;
+                  const doneCount = athletic.filter((s, j) => !s.missing && done["a" + j] != null).length;
                   return (
-                    <StationPlate
-                      key={k}
-                      num={"A" + (j + 1)}
-                      eyebrow={`${({ skill: "Movement skill", power: "Explosive power", elastic: "Reactive / elastic" })[s.kind]} · ${LEVELS[ex.lvl - 1]}`}
-                      ex={ex}
-                      setsText={setsText}
-                      canSwap={s.alternatives.length > 1}
-                      onSwap={() => doSwap(k, s, ex)}
-                      guideOpen={!!guides[k]}
-                      onToggleGuide={() => setGuides((g) => ({ ...g, [k]: !g[k] }))}
-                      easierDisabled={s.effLevel <= 1}
-                      harderDisabled={s.effLevel >= 4}
-                      onEasier={() => { bump(k, -1); setSwaps((sw) => ({ ...sw, [k]: 0 })); }}
-                      onHarder={() => { bump(k, 1); setSwaps((sw) => ({ ...sw, [k]: 0 })); }}
-                      easier={s.easier}
-                      next={s.next}
-                      sessionActive={phase === "running"}
-                      doneAt={done[k]}
-                      onDone={() => markDone(k)}
-                    />
+                    <span className="disp done-check-pop" key={doneCount} style={{ color: T.green, fontWeight: 800, fontSize: 13 }}>
+                      {doneCount}/{total} ✓
+                    </span>
                   );
-                })}
-              </>
+                })()}
+                intro={`${focus === "upper" ? "A movement-skill primer and one max-effort power drill (no hop drill on an upper-body day)." : focus === "coreGrip" ? "A movement-skill primer and one springy reactive drill." : "A movement-skill primer, one max-effort power drill, and one springy reactive drill."} All done fresh — stop each drill while reps are still crisp; this is about speed and precision, never fatigue. Rated and auto-levelled like the main stations.`}
+              >
+                <div style={{ marginTop: 10 }}>
+                  {athletic.map((s, j) => {
+                    if (s.missing) return null;
+                    const k = "a" + j;
+                    const ex = picks.ath[j];
+                    const setsText = ex.reps.includes("×") ? ex.reps : (s.kind === "skill" ? `2 × ${ex.reps}` : `3 × ${ex.reps}`);
+                    return (
+                      <StationPlate
+                        key={k}
+                        num={"A" + (j + 1)}
+                        eyebrow={`${ATH_LABEL[s.kind]} · ${LEVELS[ex.lvl - 1]}`}
+                        ex={ex}
+                        setsText={setsText}
+                        canSwap={s.alternatives.length > 1}
+                        onSwap={() => doSwap(k, s, ex)}
+                        guideOpen={!!guides[k]}
+                        onToggleGuide={() => setGuides((g) => ({ ...g, [k]: !g[k] }))}
+                        easierDisabled={s.effLevel <= 1}
+                        harderDisabled={s.effLevel >= 4}
+                        onEasier={() => { bump(k, -1, "ath-" + s.kind); setSwaps((sw) => ({ ...sw, [k]: 0 })); }}
+                        onHarder={() => { bump(k, 1, "ath-" + s.kind); setSwaps((sw) => ({ ...sw, [k]: 0 })); }}
+                        easier={s.easier}
+                        next={s.next}
+                        sessionActive={phase === "running"}
+                        doneAt={done[k]}
+                        onDone={() => markDone(k)}
+                      />
+                    );
+                  })}
+                </div>
+              </BlockCard>
             )}
 
             {focus === "full" && (
@@ -1625,70 +1657,18 @@ function FitnessCornerGenerator() {
             })()}
 
             {mobility && (
-              <div style={{ background: T.card, border: `2px solid ${T.line}`, borderRadius: 10, padding: "12px 14px", marginTop: 12 }}>
-                <div style={{ display: "flex", alignItems: "center" }}>
-                  <button
-                    onClick={() => setCooldownOpen((o) => !o)}
-                    className="disp"
-                    style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, background: "transparent", border: "none", padding: 0, textAlign: "left", cursor: "pointer", fontWeight: 800, fontSize: 15, textTransform: "uppercase", letterSpacing: "0.08em", color: T.green }}
-                  >
-                    <span style={{ display: "inline-block", transition: "transform 0.15s", transform: cooldownOpen ? "rotate(90deg)" : "rotate(0deg)" }}>▸</span>
-                    Cool-down flow · 5–8 min · static
-                  </button>
-                  {phase === "running" && (done["cooldown"] == null ? (
-                    <button onClick={() => { markDone("cooldown"); setCooldownOpen(false); }} className="disp" style={{ background: T.yellow, color: T.greenDark, border: "none", borderRadius: 6, padding: "5px 12px", fontWeight: 800, fontSize: 12, textTransform: "uppercase" }}>✓ Done</button>
-                  ) : (
-                    <span className="disp done-check-pop" style={{ color: T.green, fontWeight: 800, fontSize: 13 }}>✓ at {fmtT(done["cooldown"])}</span>
-                  ))}
-                </div>
-                {cooldownOpen && (
-                  <div className="panel-reveal">
-                    <div style={{ fontSize: 12.5, color: T.steel, marginTop: 8 }}>
-                      Long holds on warm muscles — this is where flexibility is actually built.
-                    </div>
-                    {[
-                      {
-                        ...(eq.includes("highBar") || eq.includes("monkeyBars")
-                          ? { n: "Dead hang", d: "30–60s", h: "Grab the bar and just hang with straight arms, feet off the ground. Let your shoulders relax up toward your ears and breathe slowly — this decompresses the spine." }
-                          : { n: "Cross-body shoulder stretch", d: "30s / side", h: "Stand tall and bring one straight arm across the front of your body at chest height. Use your other forearm to gently press it closer to your chest, then switch sides." }),
-                        show: needsUpperPrep,
-                      },
-                      { n: "Standing chest stretch", d: "30s", h: "Stand tall, clasp your hands together behind your lower back, and straighten your arms. Lift your chest and gently raise your clasped hands away from your body until you feel a stretch across the front of your shoulders and chest.", show: needsUpperPrep },
-                      { n: "Overhead triceps stretch", d: "30s / side", h: "Reach one arm straight up, then bend that elbow so your hand drops behind your head. Use your other hand to gently press on that elbow, then switch sides.", show: needsUpperPrep },
-                      { n: "Wrist + forearm stretch", d: "20s / side, both ways", h: "Hold one arm straight out in front, palm up. Use your other hand to gently pull the fingers back toward you, then flip the palm down and gently pull the fingers down and in, feeling the stretch on both sides of the forearm before switching arms.", show: needsUpperPrep || needsGripPrep },
-                      { n: "Deep squat hold", d: "60s", h: "Squat all the way down until your bottom is near your heels, feet flat on the ground about shoulder width. Put your elbows inside your knees and gently press them outward. Hold and breathe.", show: needsLowerPrep },
-                      {
-                        ...(eq.includes("parallelBars") || eq.includes("lowBar")
-                          ? { n: "Supported hamstring hinge", d: "60s", h: "Hold the bar with both hands at arm's length and step back. Keeping your back flat and knees almost straight, push your hips backward until you feel a stretch down the back of your thighs." }
-                          : eq.includes("bench")
-                            ? { n: "Supported hamstring hinge", d: "60s", h: "Put both hands on a bench or ledge and step back. Keeping your back flat and knees almost straight, push your hips backward until the back of your thighs stretches." }
-                            : { n: "Standing forward fold", d: "60s", h: "Stand with feet hip-width, bend your knees slightly, and fold forward at the hips, letting your head and arms hang heavy toward the ground. Sway gently." }),
-                        show: needsLowerPrep,
-                      },
-                      {
-                        ...(eq.includes("bench")
-                          ? { n: "Couch stretch", d: "30–45s / side", h: "Kneel facing away from the bench and place the top of one foot up on its edge behind you, that knee on the ground, other foot planted in front. Tuck your tailbone and lift your chest tall until you feel a deep stretch down the front of the back leg's hip and thigh." }
-                          : { n: "Hip flexor stretch", d: "30s / side", h: "Kneel on one knee like a marriage proposal, other foot flat in front. Tuck your tailbone under and shift your whole body slightly forward until you feel a stretch down the front of the hip on the kneeling side." }),
-                        show: needsLowerPrep,
-                      },
-                      { n: "Calf stretch", d: "30s / side, ×2", h: "Hands against a post or wall, step one foot back with the heel down and that leg straight — hold 30s. Then bend that back knee slightly, heel still down, to move the stretch lower into the calf — hold another 30s. Switch legs.", show: needsLowerPrep },
-                      {
-                        ...(eq.includes("bench")
-                          ? { n: "Pigeon stretch (bench)", d: "30–45s / side", h: "Stand facing the bench and lay one shin sideways along the top of it, knee and foot both resting on the bench. Keep your back leg straight behind you and lean your chest gently forward over the front shin until the outside of that hip stretches." }
-                          : { n: "Pigeon stretch (floor)", d: "30–45s / side", h: "Sit and cross one ankle over the opposite knee in a figure-4 shape, then hug the bottom knee toward your chest until the outside of the crossed leg's hip stretches." }),
-                        show: needsLowerPrep,
-                      },
-                      { n: "Pancake or butterfly stretch", d: "60s · optional", h: "Sit with your legs spread wide (pancake) or with the soles of your feet pressed together, knees out (butterfly). Keep your back long and lean your chest forward until the inner thighs stretch.", show: needsLowerPrep },
-                    ].filter((m) => m.show).map((m, j) => (
-                      <div key={j} style={{ marginTop: j === 0 ? 8 : 10 }}>
-                        <div style={{ fontSize: 14, color: T.ink, fontWeight: 600 }}>
-                          {j + 1}. {m.n} <span style={{ color: T.green, fontWeight: 700 }}>— {m.d}</span>
-                        </div>
-                        <div style={{ fontSize: 12.5, color: T.steel, marginTop: 2, lineHeight: 1.45 }}>{m.h}</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+              <div style={{ marginTop: 12 }}>
+                <BlockCard
+                  id="cooldown"
+                  title="Cool-down"
+                  meta={`${level === 1 ? "4–6" : "5–8"} min · static`}
+                  open={cooldownOpen}
+                  onToggle={() => setCooldownOpen((o) => !o)}
+                  status={blockStatus("cooldown", setCooldownOpen)}
+                  intro="Long holds on warm muscles — this is where flexibility is actually built."
+                >
+                  {cooldownItems.map((m, j) => <BlockItem key={j} j={j} {...m} />)}
+                </BlockCard>
               </div>
             )}
 
@@ -1781,7 +1761,7 @@ function FitnessCornerGenerator() {
                     </div>
                     {Object.entries(patternMem).filter(([, v]) => v !== 0).map(([p, v]) => (
                       <div key={p} style={{ fontSize: 13.5, color: T.ink, marginTop: 5 }}>
-                        {PATTERNS[p]}: <b style={{ color: v > 0 ? T.green : T.orange }}>{v > 0 ? `+${v}` : v} level{Math.abs(v) > 1 ? "s" : ""}</b>
+                        {memLabel(p)}: <b style={{ color: v > 0 ? T.green : T.orange }}>{v > 0 ? `+${v}` : v} level{Math.abs(v) > 1 ? "s" : ""}</b>
                       </div>
                     ))}
                   </div>
@@ -1849,6 +1829,44 @@ function FitnessCornerGenerator() {
           </>
         )}
       </main>
+    </div>
+  );
+}
+
+/* ---------- session blocks: warm-up, athletic, cool-down share one shell ---------- */
+function BlockCard({ id, title, meta, open, onToggle, status, intro, children }) {
+  return (
+    <div data-block={id} style={{ background: T.card, border: `2px solid ${T.line}`, borderLeft: `6px solid ${T.green}`, borderRadius: 12, padding: "12px 14px", marginBottom: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <button
+          onClick={onToggle}
+          aria-expanded={open}
+          className="disp"
+          style={{ flex: 1, display: "flex", alignItems: "baseline", gap: 6, background: "transparent", border: "none", padding: 0, textAlign: "left", cursor: "pointer", color: T.green }}
+        >
+          <span style={{ display: "inline-block", transition: "transform 0.15s", transform: open ? "rotate(90deg)" : "rotate(0deg)" }}>▸</span>
+          <span style={{ fontWeight: 800, fontSize: 15, textTransform: "uppercase", letterSpacing: "0.08em" }}>{title}</span>
+          <span style={{ fontWeight: 700, fontSize: 12.5, color: T.steel, textTransform: "uppercase", letterSpacing: "0.06em" }}>· {meta}</span>
+        </button>
+        {status}
+      </div>
+      {open && (
+        <div className="panel-reveal">
+          {intro && <div style={{ fontSize: 12.5, color: T.steel, marginTop: 8, lineHeight: 1.45 }}>{intro}</div>}
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BlockItem({ j, n, d, h }) {
+  return (
+    <div style={{ marginTop: 10 }}>
+      <div style={{ fontSize: 14, color: T.ink, fontWeight: 600 }}>
+        {j + 1}. {n} {d && <span style={{ color: T.green, fontWeight: 700 }}>— {d}</span>}
+      </div>
+      {h && <div style={{ fontSize: 12.5, color: T.steel, marginTop: 2, lineHeight: 1.45 }}>{h}</div>}
     </div>
   );
 }

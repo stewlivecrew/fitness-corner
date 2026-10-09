@@ -155,7 +155,10 @@ Exercise entry schema (compiled `EXERCISES` array, generated — read-only):
    reactive/elastic. Selection is DETERMINISTIC by design (power/skill
    improve via repetition, not rotation) — Swap exists for optional
    variety. Block sits directly after warm-up (power quality dies
-   fatigued).
+   fatigued). Focus-aware via `ATH_KINDS`: upper drops A3 (hops),
+   core & grip drops the max-effort power drill. Athletic stations are
+   rated, logged (`pattern: "ath-<kind>"`, `athletic: true`) and
+   auto-levelled with memory keys `ath-skill|ath-power|ath-elastic`.
 
 ### Session-flow invariants
 
@@ -174,6 +177,12 @@ Exercise entry schema (compiled `EXERCISES` array, generated — read-only):
   special case. Tibialis raise (wall lean) is included in warm-up
   whenever `needsLowerPrep` is true, at a lighter prep dose than its
   full working-set version in the exercise library.
+- Warm-up, athletic block and cool-down all render through `BlockCard`
+  (same header: chevron · title · meta, ✓/progress on the right) with
+  `BlockItem` rows; all three adapt to equipment + focus + level
+  (`byLvl()` scales doses/holds; L1 gets supported variants, L2+ adds
+  scap push-ups, L3+ adds easy pogo hops as elastic prep; bar hang only
+  when a bar is ticked).
 - Progression standard (shown on workout screen): top of rep range, every
   set, two sessions in a row → promote via "Harder +". Adapted from the
   r/bodyweightfitness RR 3×8 rule.
@@ -242,7 +251,8 @@ Exercise entry schema (compiled `EXERCISES` array, generated — read-only):
   real notice boards). NEVER embed NParks artwork (copyright) or external
   images (artifact sandbox blocks them anyway).
 - Five tabs: Equipment · Session · Workout · Library · Log.
-- `StationPlate` is the shared plate component (main + athletic). Any new
+- `StationPlate` is the shared plate component (main + athletic);
+  `BlockCard` is the shared shell for warm-up / athletic / cool-down. Any new
   block type should render through it to inherit Guide/Swap/steppers.
 - Anatomy figure: front+back cartoon, 14 mapped regions, three uses
   (coverage card, guide pop-out, library cards).
