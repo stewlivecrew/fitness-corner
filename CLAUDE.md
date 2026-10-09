@@ -188,7 +188,13 @@ Exercise entry schema (compiled `EXERCISES` array, generated — read-only):
 - Storage keys: `fc-corners` (name → equipment[]), `fc-log` (sessions,
   newest first, cap 100), `fc-levels` ({mem, streak}), `fc-settings`
   (last eq/level/focus/sets/format/toggles/activeCorner — restored on
-  load; powers "▶ Go — same as last time" and per-corner ▶ Go). Standalone shim
+  load; powers "▶ Go — same as last time" and per-corner ▶ Go).
+  `fc-active` ({phase, startTs, done, ratings, gen, swaps, adjs} —
+  restores the generated workout and any in-progress session after a
+  reload; excluded from backups). Backup = Log tab Export/Import: one
+  JSON file `{app, format: 1, exportedAt, data: {fc-*: value}}`; import
+  confirms, overwrites those keys, reloads. Destructive actions (reset,
+  delete corner, overwrite/rename onto an existing corner) always confirm. Standalone shim
   prefixes with `fc:` in localStorage. All storage ops wrapped in
   try/catch; missing storage degrades gracefully with a visible banner.
 - Named-corner chip deselects the moment equipment is edited — the
@@ -340,6 +346,10 @@ Format: `[decision] what — why. (supersedes: none unless noted)`
 - [two-tap] Settings + last corner persist; each saved corner has ▶ Go
   (load corner → fresh seed → Workout tab) and the Equipment tab opens
   with "▶ Go — same as last time". Open app → Go is the target flow.
+- [session-safety] Persist in-progress session + confirm every
+  destructive action + JSON backup — iOS routinely kills backgrounded
+  tabs mid-workout, Safari can evict localStorage for unused sites, and
+  "Reset all" was one unconfirmed tap from wiping everything.
 - [content-authoring] Exercise data moved from hand-edited `EXERCISES`
   array to `exercises.md` + `scripts/build_exercises.py` generator — the
   raw JS array (single-line-per-entry, ~124 entries) was hard to browse

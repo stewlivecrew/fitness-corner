@@ -646,6 +646,18 @@ function FitnessCornerGenerator() {
         if (typeof v.activeCorner === "string") setActiveCorner(v.activeCorner);
         setHasLastSetup(true);
       } catch { /* first visit — keep defaults */ }
+      // Session safety: a reload (or iOS killing the tab) restores the
+      // generated workout and any in-progress clock / ticks / ratings.
+      try {
+        const r = await window.storage.get("fc-active"); const a = JSON.parse(r.value);
+        if (a.gen && typeof a.gen.seed === "number") setGen({ seed: a.gen.seed, avoid: Array.isArray(a.gen.avoid) ? a.gen.avoid : [] });
+        if (a.swaps) setSwaps(a.swaps);
+        if (a.adjs) setAdjs(a.adjs);
+        if ((a.phase === "running" || a.phase === "rating") && a.startTs) {
+          setPhase(a.phase); setStartTs(a.startTs); setNow(Date.now());
+          setDone(a.done || {}); setRatings(a.ratings || {}); setStep(2);
+        }
+      } catch { /* nothing in progress */ }
       setSettingsLoaded(true);
     })();
   }, [hasStorage]);
@@ -655,6 +667,12 @@ function FitnessCornerGenerator() {
     const v = { eq, level, focus, sets, format, warmup, power, mobility, activeCorner };
     window.storage.set("fc-settings", JSON.stringify(v)).catch((e) => console.warn(e));
   }, [hasStorage, settingsLoaded, eq, level, focus, sets, format, warmup, power, mobility, activeCorner]);
+
+  useEffect(() => {
+    if (!hasStorage || !settingsLoaded) return;
+    const a = { phase, startTs, done, ratings, gen, swaps, adjs };
+    window.storage.set("fc-active", JSON.stringify(a)).catch((e) => console.warn(e));
+  }, [hasStorage, settingsLoaded, phase, startTs, done, ratings, gen, swaps, adjs]);
 
   useEffect(() => {
     if (phase !== "running") return;
@@ -682,12 +700,80 @@ function FitnessCornerGenerator() {
   const finishSession = () => setPhase("rating");
   const discardSession = () => { setPhase("idle"); setDone({}); setRatings({}); };
 
+  const writeCorners = async (next) => {
+    setSavedCorners(next);
+    if (hasStorage) { try { await window.storage.set("fc-corners", JSON.stringify(next)); } catch (e) { console.error(e); } }
+  };
+
   const saveCorner = async () => {
     const name = cornerName.trim();
     if (!name) return;
-    const next = { ...savedCorners, [name]: eq };
-    setSavedCorners(next); setActiveCorner(name); setCornerName("");
-    if (hasStorage) { try { await window.storage.set("fc-corners", JSON.stringify(next)); } catch (e) { console.error(e); } }
+    if (savedCorners[name] && !window.confirm(`"${name}" is already saved. Replace its equipment with what's ticked now?`)) return;
+    setActiveCorner(name); setCornerName("");
+    await writeCorners({ ...savedCorners, [name]: eq });
+  };
+
+  const renameCorner = async (oldName) => {
+    const input = window.prompt(`Rename "${oldName}" to:`, oldName);
+    const name = (input || "").trim();
+    if (!name || name === oldName) return;
+    if (savedCorners[name] && !window.confirm(`"${name}" already exists. Replace it with "${oldName}"?`)) return;
+    const next = {};
+    Object.entries(savedCorners).forEach(([k, v]) => { if (k !== oldName && k !== name) next[k] = v; else if (k === oldName) next[name] = v; });
+    await writeCorners(next);
+    if (activeCorner === oldName) setActiveCorner(name);
+    // Keep history attached to the corner so rotation-by-corner still works.
+    const nextLog = (log || []).map((en) => (en.corner === oldName ? { ...en, corner: name } : en));
+    setLog(nextLog);
+    if (hasStorage) { try { await window.storage.set("fc-log", JSON.stringify(nextLog)); } catch (e) { console.error(e); } }
+  };
+
+  const deleteCorner = async (name) => {
+    if (!window.confirm(`Delete the saved corner "${name}"? Your workout history stays.`)) return;
+    const next = { ...savedCorners }; delete next[name];
+    await writeCorners(next);
+    if (activeCorner === name) setActiveCorner("");
+  };
+
+  // ---- Backup: export / import every fc-* key as one JSON file ----
+  const BACKUP_SKIP = ["fc-active"]; // transient in-progress state, not worth restoring
+  const exportData = async () => {
+    const data = {};
+    try {
+      const { keys } = await window.storage.list("fc-");
+      for (const k of keys) {
+        if (BACKUP_SKIP.includes(k)) continue;
+        try { const r = await window.storage.get(k); data[k] = JSON.parse(r.value); } catch { /* skip unreadable key */ }
+      }
+    } catch (e) { console.error(e); }
+    const stamp = new Date().toISOString().slice(0, 10);
+    const json = JSON.stringify({ app: "fitness-corner", format: 1, exportedAt: new Date().toISOString(), data }, null, 2);
+    const fname = `fitness-corner-backup-${stamp}.json`;
+    const blob = new Blob([json], { type: "application/json" });
+    const standalone = window.navigator.standalone === true || (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+    try {
+      const file = new File([blob], fname, { type: "application/json" });
+      if (standalone && navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: "Fitness Corner backup" }); return; }
+    } catch (e) { if (e && e.name === "AbortError") return; }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = fname;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  };
+
+  const importData = async (file) => {
+    if (!file) return;
+    try {
+      const parsed = JSON.parse(await file.text());
+      if (!parsed || parsed.app !== "fitness-corner" || typeof parsed.data !== "object") throw new Error("not a Fitness Corner backup");
+      const keys = Object.keys(parsed.data).filter((k) => k.startsWith("fc-") && !BACKUP_SKIP.includes(k));
+      const when = parsed.exportedAt ? new Date(parsed.exportedAt).toLocaleString("en-SG") : "unknown date";
+      if (!window.confirm(`Replace your current corners, history and levels with the backup from ${when}? (${keys.length} item${keys.length === 1 ? "" : "s"})`)) return;
+      for (const k of keys) await window.storage.set(k, JSON.stringify(parsed.data[k]));
+      window.location.reload();
+    } catch (e) {
+      window.alert("Couldn't import that file: " + e.message);
+    }
   };
 
   const saveSession = async () => {
@@ -724,8 +810,9 @@ function FitnessCornerGenerator() {
   };
 
   const resetData = async () => {
-    setLog([]); setPatternMem({}); streakRef.current = {}; setSavedCorners({});
-    if (hasStorage) { for (const k of ["fc-log", "fc-levels", "fc-corners"]) { try { await window.storage.delete(k); } catch {} } }
+    if (!window.confirm("Delete ALL saved corners, workout history and auto-levels on this device? This can't be undone — export a backup first if unsure.")) return;
+    setLog([]); setPatternMem({}); streakRef.current = {}; setSavedCorners({}); setHasLastSetup(false);
+    if (hasStorage) { for (const k of ["fc-log", "fc-levels", "fc-corners", "fc-settings"]) { try { await window.storage.delete(k); } catch {} } }
   };
 
   const hitMuscles = useMemo(() => {
@@ -911,6 +998,20 @@ function FitnessCornerGenerator() {
                       style={{ minWidth: 64, minHeight: 44, background: T.yellow, color: T.greenDark, border: "none", borderRadius: 10, fontWeight: 800, fontSize: 15, textTransform: "uppercase", letterSpacing: "0.06em" }}
                     >
                       ▶ Go
+                    </button>
+                    <button
+                      onClick={() => renameCorner(nm)}
+                      aria-label={`Rename ${nm}`}
+                      style={{ minWidth: 40, minHeight: 44, background: T.card, color: T.green, border: `2px solid ${T.line}`, borderRadius: 10, fontSize: 15 }}
+                    >
+                      ✎
+                    </button>
+                    <button
+                      onClick={() => deleteCorner(nm)}
+                      aria-label={`Delete ${nm}`}
+                      style={{ minWidth: 40, minHeight: 44, background: T.card, color: T.safetyText, border: `2px solid ${T.line}`, borderRadius: 10, fontSize: 15 }}
+                    >
+                      ✕
                     </button>
                   </div>
                 ))}
@@ -1625,6 +1726,25 @@ function FitnessCornerGenerator() {
                     </div>
                   </div>
                 ))}
+                {hasStorage && (
+                  <div style={{ background: T.card, border: `2px solid ${T.line}`, borderRadius: 10, padding: "12px 14px", marginTop: 8 }}>
+                    <div className="disp" style={{ fontWeight: 800, fontSize: 15, textTransform: "uppercase", letterSpacing: "0.08em", color: T.green }}>
+                      Backup
+                    </div>
+                    <div style={{ fontSize: 12.5, color: T.steel, marginTop: 2, lineHeight: 1.45 }}>
+                      Your data lives only on this phone. Export a file now and then (save it to Files / Drive) so a cleared browser or new phone doesn't wipe your history.
+                    </div>
+                    <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                      <button onClick={exportData} className="disp" style={{ flex: 1, background: T.green, color: "#fff", border: "none", borderRadius: 8, padding: "10px 0", fontWeight: 800, fontSize: 14, textTransform: "uppercase" }}>
+                        ⬇ Export backup
+                      </button>
+                      <label className="disp" style={{ flex: 1, textAlign: "center", background: "transparent", color: T.green, border: `2px solid ${T.green}`, borderRadius: 8, padding: "8px 0", fontWeight: 800, fontSize: 14, textTransform: "uppercase", cursor: "pointer" }}>
+                        ⬆ Import
+                        <input type="file" accept="application/json,.json" data-import style={{ display: "none" }} onChange={(e) => { importData(e.target.files && e.target.files[0]); e.target.value = ""; }} />
+                      </label>
+                    </div>
+                  </div>
+                )}
                 {(log.length > 0 || Object.keys(savedCorners).length > 0) && (
                   <button
                     onClick={resetData}
