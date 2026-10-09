@@ -48,9 +48,11 @@ accounts, no external runtime requests. Node.js (ESLint + esbuild) is a
   (esbuild bundle + iOS/PWA meta + inline @font-face + localStorage shim
   + SW registration; the artifact's Google Fonts `@import` line is
   stripped in the build). These are what GitHub Pages serves.
-- `icons/` — `icon.svg` is the source; the PNGs (192, 512, maskable 512,
-  180 apple-touch, 32 favicon) are rendered from it (any SVG renderer /
-  headless Chrome) and committed.
+- `icons/` — `icon-source.png` (1024², opaque, full-bleed retro-sunset
+  artwork: Marina Bay Sands + pull-up bar + parallel bars) is the source;
+  the PNGs (192, 512, maskable 512 — full-bleed so it survives any mask —
+  180 apple-touch, 32 favicon) are Lanczos downscales of it (Pillow),
+  committed. Keep them opaque (iOS fills transparency with black).
 - `_config.yml` — Jekyll `exclude:` so Pages serves only the built app
   (not `sandbox.html`, sources or docs).
 - `exercises.md` — source-of-truth exercise library (see Data model below);

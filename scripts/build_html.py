@@ -157,7 +157,7 @@ def main():
     write_manifest()
     for icon in ICONS:
         if not (ROOT / icon).exists():
-            sys.exit(f"missing {icon} (render it from icons/icon.svg)")
+            sys.exit(f"missing {icon} (downscale it from icons/icon-source.png)")
 
     html = f"""<!DOCTYPE html>
 <html lang="en">
