@@ -23,7 +23,7 @@ yet built in (use this to stage new exercise ideas before they're ready).
 - status: active
 
 ### Pike push-up
-- level: 1
+- level: 2
 - requires: (none)
 - reps: 6–10
 - muscles: shoulders, triceps
@@ -184,6 +184,24 @@ yet built in (use this to stage new exercise ideas before they're ready).
 - cue: Make the bottom quarter deliberate; that's where the press usually stalls.
 - status: active
 
+### Wall pike press
+- level: 1
+- requires: (none)
+- reps: 8–12
+- muscles: shoulders, triceps
+- how: Stand facing a wall or sturdy post about one big step away. Place your hands on it at head height, shoulder-width apart, then walk your feet back and bend at the hips until your arms and back make one straight line. Bend your elbows to bring the top of your head toward the wall between your hands, then press back.
+- cue: Keep the hip bend the whole time — this is an overhead press at an angle, not a wall push-up.
+- status: active
+
+### Kneeling pike push-up
+- level: 1
+- requires: (none)
+- reps: 6–10
+- muscles: shoulders, triceps
+- how: Kneel on the ground and place your hands flat in front of you, shoulder-width apart, about a forearm's length ahead of your knees. Lift your hips so your weight shifts onto your hands. Bend your elbows to lower the top of your head toward the ground in front of your hands, then press back up.
+- cue: Head travels forward of your hands, making a triangle with them — elbows point back, not out.
+- status: active
+
 ## Vertical Pull
 
 ### Dead hang + scapular pulls
@@ -328,6 +346,15 @@ yet built in (use this to stage new exercise ideas before they're ready).
 - muscles: lats, biceps, upperBack
 - how: Sit in the machine and hold one handle above you — say with your right hand. Pull it down to your shoulder, hold 3 seconds, then take a full 5 seconds to let it rise back to a straight arm. Finish all reps, then switch to your left hand.
 - cue: Keep the shoulder down at the top — don't let the machine pull you into a shrug.
+- status: active
+
+### Reverse snow angel
+- level: 1
+- requires: (none)
+- reps: 8–10
+- muscles: lats, upperBack, shoulders
+- how: Lie face down with your arms by your sides, palms facing the ground, and your forehead resting just off the ground. Lift your hands and chest slightly, then sweep both straight arms out to the sides and overhead in a wide arc, as if making a snow angel, and sweep them back to your hips.
+- cue: Honest stand-in, not a pull-up — it wakes up the lats and upper back. Hands stay off the ground the whole arc.
 - status: active
 
 ## Horizontal Push
@@ -494,6 +521,24 @@ yet built in (use this to stage new exercise ideas before they're ready).
 - cue: Squeeze your glutes and thighs so your hips don't sag or pike.
 - status: active
 
+### Wall push-up
+- level: 1
+- requires: (none)
+- reps: 10–15
+- muscles: chest, triceps, shoulders
+- how: Stand facing a wall or sturdy post about one arm's length away and place your hands on it at chest height, a little wider than your shoulders. Keeping your body in one straight line from head to heels, bend your elbows to bring your chest toward the wall, then push back.
+- cue: Step your feet further back to make it harder — keep your heels down and hips in line.
+- status: active
+
+### Knee push-up
+- level: 1
+- requires: (none)
+- reps: 8–12
+- muscles: chest, triceps, shoulders
+- how: Kneel on the ground and place your hands flat, a little wider than your shoulders. Walk your hands forward until your body is a straight line from knees to head. Bend your elbows to lower your chest toward the ground, then push back up.
+- cue: Hips stay in line with your shoulders and knees — don't leave your bottom up in the air.
+- status: active
+
 ## Horizontal Pull
 
 ### Incline row
@@ -593,6 +638,15 @@ yet built in (use this to stage new exercise ideas before they're ready).
 - muscles: upperBack, lats, biceps
 - how: Stand facing the Swiss ladder and grip a rung at waist height with both hands. Walk your feet in close to the base and lean back until your arms are straight and your body is at a steep angle, one straight line from head to heels. Pull your chest to the rung, then lower slowly.
 - cue: Pause for a second with your chest at the rung and your shoulder blades squeezed together.
+- status: active
+
+### Supine elbow press
+- level: 1
+- requires: (none)
+- reps: 8–12 × 3s hold
+- muscles: upperBack, lats
+- how: Lie on your back with your knees bent and feet flat. Bend your elbows to 90° with your upper arms by your sides. Drive your elbows down into the ground to lift your upper back and shoulders a few centimetres off the ground, hold 3 seconds, then lower.
+- cue: Honest floor stand-in for a row — squeeze your shoulder blades together as the elbows press down. A waist-height bar or railing unlocks real rows.
 - status: active
 
 ## Knee Dominant
@@ -769,6 +823,24 @@ yet built in (use this to stage new exercise ideas before they're ready).
 - cue: If the lowering speeds up, the set is over.
 - status: active
 
+### Assisted squat (holding a post)
+- level: 1
+- requires: (none)
+- reps: 10–15
+- muscles: quads, glutes
+- how: Stand facing a post, pole or railing, feet shoulder-width apart, and hold it with both hands at waist height. Sit your hips back and down as far as is comfortable, using your hands to help, then stand back up.
+- cue: Use your hands only as much as you need — chest up, heels flat, knees follow your toes.
+- status: active
+
+### Wall sit
+- level: 1
+- requires: (none)
+- reps: 20–40s
+- muscles: quads, glutes
+- how: Stand with your back flat against a wall or post and walk your feet forward about two foot-lengths. Slide your back down until your knees are bent to a comfortable angle — no deeper than a chair seat — and hold.
+- cue: Weight in your heels and knees over your ankles — go higher if your knees complain.
+- status: active
+
 ## Hip Dominant
 
 ### Elephant walk
@@ -850,6 +922,15 @@ yet built in (use this to stage new exercise ideas before they're ready).
 - muscles: hamstrings, glutes
 - how: Kneel facing away from the wall bars and hook your heels under a low rung. Keeping your hips straight, lower your body forward as slowly as possible, catching yourself with your hands.
 - cue: Hips stay extended — bending at the waist is cheating the hamstrings.
+- status: active
+
+### Hip hinge wall tap
+- level: 1
+- requires: (none)
+- reps: 10–12
+- muscles: hamstrings, glutes, lowerBack
+- how: Stand with your back to a wall, heels about a foot-length away from it, knees soft. Keeping your back flat, push your hips backward until your bottom taps the wall, then squeeze your glutes to stand tall.
+- cue: Hips go back, not down — you should feel the stretch in the back of your thighs.
 - status: active
 
 ## Core
@@ -1122,6 +1203,24 @@ yet built in (use this to stage new exercise ideas before they're ready).
 - muscles: abs, triceps, shoulders
 - how: Sit on the ground between the push-up bars and grip one in each hand. Press down to lift your bottom off the ground, then pull your knees toward your chest so only your hands touch, and hold.
 - cue: Push the bars away — tall shoulders, back slightly rounded.
+- status: active
+
+### Kneeling plank
+- level: 1
+- requires: (none)
+- reps: 20–30s
+- muscles: abs
+- how: Lie face down, then prop yourself up on your forearms with elbows under your shoulders. Keep your knees on the ground and lift your hips until your body is a straight line from knees to head, and hold.
+- cue: Squeeze your glutes and pull your belly button in — no sagging hips.
+- status: active
+
+### Heel-tap dead bug
+- level: 1
+- requires: (none)
+- reps: 8–10 / side
+- muscles: abs
+- how: Lie on your back with your arms pointing at the sky and your knees bent at 90° above your hips. Keeping your lower back pressed into the ground, slowly lower one foot — say your right — to tap your heel on the ground, bring it back, then do your left.
+- cue: If your lower back lifts off the ground, don't lower the foot as far.
 - status: active
 
 ## Grip / Athletic
@@ -1558,5 +1657,14 @@ yet built in (use this to stage new exercise ideas before they're ready).
 - muscles: quads, calves, abs
 - how: Walk forward along the beam with your arms out. Halfway along, slowly squat down until you can touch the beam with one hand, stand back up without stepping off, then finish the length.
 - cue: Slow is the skill — rush the squat and you'll fall off.
+- status: active
+
+### Wall-supported calf raise
+- level: 1
+- requires: (none)
+- reps: 15–20
+- muscles: calves
+- how: Stand facing a wall or post with your fingertips resting on it for balance, feet hip-width apart. Rise up onto the balls of your feet as high as you can, pause for a second, then lower your heels slowly.
+- cue: Take 2 seconds to lower — the slow way down does most of the work.
 - status: active
 

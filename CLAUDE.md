@@ -82,7 +82,7 @@ this. Do not break it.
 
 ### Data model
 
-**`exercises.md` is the source of truth** (166 entries as of this writing).
+**`exercises.md` is the source of truth** (178 entries as of this writing).
 Authored per-exercise as a Markdown block (pattern heading → `###` name →
 `- field: value` lines, including a `status: active|candidate` field so new
 ideas can be staged without wiring them into the app yet). Run
@@ -224,7 +224,12 @@ Exercise entry schema (compiled `EXERCISES` array, generated — read-only):
 - No external-load exercises (no weighted dips/pull-ups, bands, towels).
   Exception planned: personal "Gear" category (see roadmap).
 - Honest fallbacks: if an exercise is activation-level (prone lat
-  pulldown), the cue says so.
+  pulldown), the cue says so. The UI also shows a stand-in note on any
+  pull-pattern station whose exercise is ground-only (`req: []`).
+- Ground-only Beginner must be doable by someone who has never
+  trained: every pattern has ≥2 L1 `req: []` options (wall/kneeling
+  regressions; a wall or post is assumed available, like the existing
+  tibialis wall lean).
 - Safety strip in every guide: "Stop if you feel sharp pain, dizziness,
   or can no longer control the movement."
 
@@ -370,6 +375,12 @@ Format: `[decision] what — why. (supersedes: none unless noted)`
 - [full-body] Rotate vertical pull/push instead of adding a 7th station —
   full body never trained overhead pushing; a 7th slot adds ~3–4 min to
   every session, rotation keeps length and gives both every 2 sessions.
+- [ground-beginner] Audit of ground-only L1: added wall/knee push-ups,
+  wall & kneeling pike, assisted squat (post), wall sit, hinge wall tap,
+  kneeling plank, heel-tap dead bug, wall calf raise, reverse snow angel,
+  supine elbow press; Pike push-up L1→L2 (6–10 reps is not a first-day
+  move). No-bar pulls stay honest stand-ins — no towel/door hacks
+  (no-external-load rule).
 - [content-authoring] Exercise data moved from hand-edited `EXERCISES`
   array to `exercises.md` + `scripts/build_exercises.py` generator — the
   raw JS array (single-line-per-entry, ~124 entries) was hard to browse
