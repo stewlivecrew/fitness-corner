@@ -392,6 +392,28 @@ see the design doc summarised in the `[fitness-test]` decision entry.
   free, the shared verified layer + comments is the paid surface. Confirm
   with the owner before building.
 
+### Corner-first home (Equipment tab)
+
+- **With ≥ 1 saved corner** the tab opens on a hero card: the nearest
+  saved map corner (≤ 1.5 km) if location permission is ALREADY granted
+  (silent `getCurrentPosition`, maximumAge 5 min — never prompts; also
+  reuses a position from Find nearest), else the most recently used corner
+  (latest of counted visit / log entry / place update). Card: tier colour
+  stripe + name, tier · workouts · area · items, "Confirmed by you on",
+  **Edit equipment** link, one row of focus quick picks (Full / Upper /
+  Lower / Core & grip — defaults to Full each open, deliberately NOT
+  copied from the last workout), optional time (Any / 20 / 30 / 45 min),
+  big **▶ Go** = that corner's saved equipment + chosen focus + saved level
+  (+ sets from `setsForTime()` when a time is picked — same estimate as
+  the Workout tab; this overwrites the saved sets value). Go counts as a
+  corner pick for tiers. Below: Find nearest corner, test/retest banners,
+  "Other corners" (hero excluded) with Progress ›, and "＋ Somewhere else?
+  Tick the equipment" (`manualPick`) which shows today's picker with
+  "‹ Back to my corners". "Go — same as last time", presets, picker grid
+  and the name/save row are hidden on the home view.
+- **No saved corners** → exactly the old picker screen. New/unconfirmed
+  corners and Edit equipment use the see-and-select picker (`pendingPlace`).
+
 ### My corners (tiers + profile)
 
 - **Where:** Equipment tab → "Progress ›" (next to the My corners list)
@@ -737,6 +759,10 @@ Format: `[decision] what — why. (supersedes: none unless noted)`
   `fc-places` key rather than reshaping `fc-corners`, so existing data,
   backups and generation are untouched.
 
+- [corner-first] Equipment tab leads with a saved corner + Go instead of
+  the equipment grid once you have corners — the grid is a one-time job
+  per corner; daily use is "I'm at my corner, go". Focus is a fresh quick
+  pick (default Full) rather than replaying last workout's settings.
 - [corner-tiers] Per-corner progress is a colour tier on the corner
   itself (stripe + name) with one small text line, not badge icons —
   owner asked for no clutter. Counts live in their own uncapped

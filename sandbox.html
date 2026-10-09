@@ -983,6 +983,16 @@ FOCUS.full.scope = Object.keys(MUSCLES);
 // Full body alternates its vertical slot: pull-up day ↔ overhead-push day
 // (decided per Generate from your last saved full-body session). Keeps the
 // session at 6 stations while still training overhead pushing every other time.
+// Corner-first home: how many sets fit a time budget (minutes), using the same
+// rough estimate as the Workout tab. Never below 2 sets.
+const TIME_OPTIONS = [20, 30, 45];
+function setsForTime(mins, { focus, format, warmup, power, mobility }) {
+  const fixed = (warmup ? 5 : 0) + (power ? 7 : 0) + (mobility ? 6 : 0);
+  const per = FOCUS[focus].patterns.length * (format === "straight" ? 1.8 : 1.1);
+  let s = 2;
+  for (let k = 2; k <= 5; k++) if (fixed + Math.round(per * k) <= mins) s = k;
+  return s;
+}
 function focusPatterns(focus, vslot) {
   const ps = FOCUS[focus].patterns;
   return focus === "full" && vslot === "push" ? ps.map((p) => (p === "verticalPull" ? "verticalPush" : p)) : ps;
@@ -1998,6 +2008,12 @@ function FitnessCornerGenerator() {
   const [visits, setVisits] = useState(null); // null = loading, "backfill" = build from the log once
   const [cornerVia, setCornerVia] = useState(""); // how activeCorner was chosen: pick (nearest / My corners / Go) | select (save-screen dropdown)
   const [celebration, setCelebration] = useState(null);
+  // ---- Corner-first home ----
+  const [manualPick, setManualPick] = useState(false); // show today's tick-the-equipment picker even though corners exist
+  const [quickFocus, setQuickFocus] = useState("full"); // home quick pick — deliberately NOT copied from the last workout
+  const [timeBudget, setTimeBudget] = useState(null); // minutes or null = keep saved sets
+  const [herePos, setHerePos] = useState(null);
+  const herePosAsked = useRef(false);
 
   useEffect(() => {
     if (!hasStorage) { setLog([]); setFcTest({ history: [] }); setVisits([]); return; }
@@ -2213,6 +2229,37 @@ function FitnessCornerGenerator() {
     if (hasStorage) window.storage.set("fc-visits", JSON.stringify(v)).catch((e) => console.warn(e));
   }, [hasStorage, settingsLoaded, visits, log, savedCorners, placeByCorner]);
   const stats = useMemo(() => cornerStats(visitList, savedCorners, placeByCorner), [visitList, savedCorners, placeByCorner]);
+  // Home hero: nearest saved map corner (≤ 1.5 km) if location is ALREADY
+  // allowed — never prompts — else the corner you used most recently.
+  useEffect(() => {
+    if (step !== 0 || herePosAsked.current || !settingsLoaded || !Object.keys(placeByCorner).length) return;
+    herePosAsked.current = true;
+    (async () => {
+      try {
+        if (!navigator.permissions || !navigator.geolocation) return;
+        if ((await navigator.permissions.query({ name: "geolocation" })).state !== "granted") return;
+        navigator.geolocation.getCurrentPosition((p) => setHerePos({ lat: p.coords.latitude, lng: p.coords.longitude }), () => {}, { maximumAge: 300000, timeout: 8000 });
+      } catch { /* no permissions API */ }
+    })();
+  }, [step, settingsLoaded, placeByCorner]);
+  const hero = useMemo(() => {
+    const names = Object.keys(savedCorners);
+    if (!names.length) return null;
+    const pos = (finder && finder.pos) || herePos;
+    if (pos) {
+      const near = names.filter((n) => placeByCorner[n]).map((n) => ({ name: n, dist: distM(pos.lat, pos.lng, placeByCorner[n].lat, placeByCorner[n].lng) })).sort((a, b) => a.dist - b.dist)[0];
+      if (near && near.dist <= 1500) return near;
+    }
+    const lastAt = (n) => {
+      let best = "";
+      const v = stats.per[n]; if (v && v.last > best) best = v.last;
+      const en = (log || []).find((e) => e.corner === n); if (en && en.date > best) best = en.date;
+      const pl = placeByCorner[n]; if (pl && pl.updatedAt > best) best = pl.updatedAt;
+      return best;
+    };
+    const sorted = [...names].sort((a, b) => (lastAt(b) > lastAt(a) ? 1 : lastAt(b) < lastAt(a) ? -1 : (b === activeCorner) - (a === activeCorner)));
+    return { name: sorted[0], dist: null, last: lastAt(sorted[0]) };
+  }, [savedCorners, placeByCorner, finder, herePos, stats, log, activeCorner]);
   // Optional GPS check: only if location is ALREADY allowed — never prompts.
   const gpsNear = async (lat, lng) => {
     try {
@@ -2315,6 +2362,7 @@ function FitnessCornerGenerator() {
     }
     setCornerFlash(corner ? `${label} removed from ${corner} — exercise swapped.` : `${label} removed — exercise swapped.`);
   };
+  const home = !pendingPlace && !manualPick && !!hero;
   const notHereProp = { corner: activeCorner && savedCorners[activeCorner] ? activeCorner : "", onPick: markNotHere };
   useEffect(() => {
     if (!cornerFlash) return;
@@ -2793,6 +2841,50 @@ function FitnessCornerGenerator() {
                 <div style={{ fontSize: 12, color: T.steel, marginTop: 6 }}>{eq.length} item{eq.length === 1 ? "" : "s"} ticked · saved on this phone only</div>
               </div>
             )}
+            {home && (() => {
+              const nm = hero.name; const tr = stats.tier(nm); const eqList = savedCorners[nm] || [];
+              const sg = placeByCorner[nm] && SG_CORNER_BY_ID[placeByCorner[nm].id];
+              const goSets = timeBudget ? setsForTime(timeBudget, { focus: quickFocus, format, warmup, power, mobility }) : sets;
+              const pill = (on) => ({ flex: 1, minHeight: 40, borderRadius: 8, border: `2px solid ${on ? T.green : T.line}`, background: on ? T.green : T.card, color: on ? "#fff" : T.ink, fontWeight: 700, fontSize: 13.5, textTransform: "uppercase", letterSpacing: "0.03em", padding: "0 4px" });
+              return (
+                <div data-hero={nm} style={{ background: T.card, border: `2px solid ${T.line}`, borderLeft: `6px solid ${tr.color}`, borderRadius: 12, padding: "12px 12px", marginBottom: 14 }}>
+                  <div className="disp" style={{ fontWeight: 700, fontSize: 12.5, letterSpacing: "0.12em", textTransform: "uppercase", color: T.steel }}>
+                    {hero.dist != null ? `📍 Nearest · ${fmtDist(hero.dist)}` : "Your corner"}
+                  </div>
+                  <div className="disp" data-hero-name style={{ fontWeight: 800, fontSize: 24, lineHeight: 1.05, textTransform: "uppercase", color: tr.idx >= 0 ? tr.color : T.ink, marginTop: 2 }}>{nm}</div>
+                  <div style={{ fontSize: 12.5, color: T.steel, marginTop: 3 }}>
+                    {[tr.count ? `${tr.label} · ${tr.count} workout${tr.count === 1 ? "" : "s"}` : tr.label, sg && sg.area, `${eqList.length ? `${eqList.length} item${eqList.length === 1 ? "" : "s"}` : "ground only"}`].filter(Boolean).join(" · ")}
+                    {" · "}<button data-hero-edit onClick={() => startEdit(nm)} style={{ background: "transparent", border: "none", padding: 0, color: T.green, fontWeight: 700, textDecoration: "underline", fontSize: 12.5 }}>Edit equipment</button>
+                  </div>
+                  {placeByCorner[nm] && <div data-corner-confirmed={nm} style={{ fontSize: 12, color: T.green, marginTop: 2 }}>✓ Confirmed by you on {fmtDay(placeByCorner[nm].confirmedAt)}</div>}
+                  <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
+                    {[["full", "Full"], ["upper", "Upper"], ["lower", "Lower"], ["coreGrip", "Core & grip"]].map(([k, l]) => (
+                      <button key={k} data-quick-focus={k} aria-pressed={quickFocus === k} onClick={() => setQuickFocus(k)} className="disp" style={pill(quickFocus === k)}>{l}</button>
+                    ))}
+                  </div>
+                  <div style={{ display: "flex", gap: 6, marginTop: 6, alignItems: "center" }}>
+                    <span style={{ fontSize: 12.5, color: T.steel, minWidth: 34 }}>Time</span>
+                    {[null, ...TIME_OPTIONS].map((m) => (
+                      <button key={String(m)} data-quick-time={m || "any"} aria-pressed={timeBudget === m} onClick={() => setTimeBudget(m)} className="disp" style={{ ...pill(timeBudget === m), minHeight: 34, fontSize: 12.5 }}>{m ? `${m} min` : "Any"}</button>
+                    ))}
+                  </div>
+                  <button
+                    data-hero-go
+                    onClick={() => { setFocus(quickFocus); setSets(goSets); go(nm, eqList); }}
+                    className="disp"
+                    style={{ width: "100%", marginTop: 10, minHeight: 56, background: T.yellow, color: T.greenDark, border: "none", borderRadius: 10, fontWeight: 800, fontSize: 22, textTransform: "uppercase", letterSpacing: "0.08em" }}
+                  >
+                    ▶ Go
+                  </button>
+                  <div style={{ fontSize: 12, color: T.steel, marginTop: 6, textAlign: "center" }}>
+                    {FOCUS[quickFocus].label} · {LEVELS[level - 1]} · {goSets} sets · {format === "straight" ? "straight sets" : "circuit"} · change on the Session tab
+                  </div>
+                </div>
+              );
+            })()}
+            {!pendingPlace && manualPick && hero && (
+              <button data-back-home onClick={() => setManualPick(false)} className="disp" style={{ background: "transparent", border: "none", color: T.green, fontWeight: 800, fontSize: 13, textTransform: "uppercase", letterSpacing: "0.06em", padding: "0 0 10px" }}>‹ Back to my corners</button>
+            )}
             {!pendingPlace && cornerFlash && (
               <div data-corner-flash style={{ background: "#E7EDE3", border: `2px solid ${T.green}`, borderRadius: 10, padding: "10px 12px", marginBottom: 14, fontSize: 14 }}>✓ {cornerFlash}</div>
             )}
@@ -2896,7 +2988,7 @@ function FitnessCornerGenerator() {
                 </div>
               </button>
             ))}
-            {!pendingPlace && hasLastSetup && (
+            {!pendingPlace && !home && hasLastSetup && (
               <button
                 onClick={() => go()}
                 className="disp"
@@ -2939,13 +3031,13 @@ function FitnessCornerGenerator() {
                 </div>
               </div>
             )}
-            <p style={{ fontSize: 15, color: T.steel, margin: "4px 0 6px" }}>
+            {!home && <p style={{ fontSize: 15, color: T.steel, margin: "4px 0 6px" }}>
               Tap what you can see at this corner. Ground exercises are always included.
-            </p>
-            <p style={{ fontSize: 12.5, color: T.steel, margin: "0 0 14px" }}>
+            </p>}
+            {!home && <p style={{ fontSize: 12.5, color: T.steel, margin: "0 0 14px" }}>
               Tai chi wheels, air walkers, body twisters and back massagers are common here but carry no trainable resistance — this generator skips them on purpose.
-            </p>
-            {!pendingPlace && <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+            </p>}
+            {!pendingPlace && !home && <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
               {PRESETS.map((p) => (
                 <button
                   key={p.id}
@@ -2976,13 +3068,13 @@ function FitnessCornerGenerator() {
               <div style={{ marginBottom: 14 }}>
                 <div style={{ display: "flex", alignItems: "baseline", marginBottom: 6 }}>
                   <div className="disp" style={{ flex: 1, fontWeight: 800, fontSize: 13, textTransform: "uppercase", letterSpacing: "0.1em", color: T.green }}>
-                    My corners — tap Go to start
+                    {home ? "Other corners" : "My corners — tap Go to start"}
                   </div>
                   <button data-open-mycorners onClick={() => setStep(5)} className="disp" style={{ background: "transparent", border: "none", color: T.green, fontWeight: 800, fontSize: 13, textTransform: "uppercase", letterSpacing: "0.06em", padding: "4px 0", minHeight: 32 }}>
                     Progress ›
                   </button>
                 </div>
-                {Object.entries(savedCorners).map(([nm, eqList]) => (
+                {Object.entries(savedCorners).filter(([nm]) => !(home && nm === hero.name)).map(([nm, eqList]) => (
                   <div key={nm} style={{ marginBottom: 6 }}>
                   <div data-corner={nm} style={{ display: "flex", gap: 6 }}>
                     <button
@@ -3030,7 +3122,12 @@ function FitnessCornerGenerator() {
                 ))}
               </div>
             )}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            {home && (
+              <button data-manual-pick onClick={() => { setManualPick(true); setFinder(null); }} className="disp" style={{ width: "100%", marginTop: 4, background: "transparent", color: T.green, border: `2px dashed ${T.green}`, borderRadius: 10, padding: "10px 0", fontWeight: 800, fontSize: 14, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                ＋ Somewhere else? Tick the equipment
+              </button>
+            )}
+            {!home && <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
               {EQUIPMENT.map((e) => {
                 const on = eq.includes(e.id);
                 return (
@@ -3068,8 +3165,8 @@ function FitnessCornerGenerator() {
                   </button>
                 );
               })}
-            </div>
-            {!pendingPlace && <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+            </div>}
+            {!pendingPlace && !home && <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
               <input
                 value={cornerName}
                 onChange={(e) => setCornerName(e.target.value)}
@@ -3091,7 +3188,7 @@ function FitnessCornerGenerator() {
                 ✓ Save &amp; start workout
               </button>
             )}
-            {!pendingPlace && <button
+            {!pendingPlace && !home && <button
               onClick={() => setStep(1)}
               className="disp"
               style={{
