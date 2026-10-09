@@ -99,7 +99,7 @@ this. Do not break it.
 
 ### Data model
 
-**`exercises.md` is the source of truth** (178 entries as of this writing).
+**`exercises.md` is the source of truth** (208 entries as of this writing).
 Authored per-exercise as a Markdown block (pattern heading → `###` name →
 `- field: value` lines, including a `status: active|candidate` field so new
 ideas can be staged without wiring them into the app yet). Run
@@ -320,7 +320,9 @@ see the design doc summarised in the `[fitness-test]` decision entry.
   Exception planned: personal "Gear" category (see roadmap).
 - Honest fallbacks: if an exercise is activation-level (prone lat
   pulldown), the cue says so. The UI also shows a stand-in note on any
-  pull-pattern station whose exercise is ground-only (`req: []`).
+  pull-pattern station whose exercise is ground-only (`req: []`) — except
+  post rows (a real, lighter pull using a solid post), which get their own
+  note.
 - Ground-only Beginner must be doable by someone who has never
   trained: every pattern has ≥2 L1 `req: []` options (wall/kneeling
   regressions; a wall or post is assumed available, like the existing
@@ -375,7 +377,8 @@ data carries over.
   Routine (ladders match nearly rung-for-rung; phase order matches).
 - ATG / Knees Over Toes (Ben Patrick): tibialis raise, Patrick step, ATG
   split squat, elephant walk, seated good morning, backward walk, reverse
-  Nordic, soleus raise, couch stretch, pigeon, heel/toe walks. Movements
+  Nordic, soleus raise, couch stretch, pigeon, heel/toe walks,
+  front-foot-elevated split squat, Peterson step-up, single-leg tib raise. Movements
   are not ownable; all descriptions written fresh in house style. If ever
   public, credit ATG influence in an about section.
 - Squat University alignment: movement-first cues; future "self-screens"
@@ -392,8 +395,8 @@ data carries over.
 3. **Gear tab** (personal accessories, distinct from Equipment):
    Equipment = property of the place; Gear = property of the person
    (persists across sessions, unioned with corner equipment at
-   generation). First items: mini band (unlocks glute med — the one
-   remaining muscle-model hole), jump rope (canonical elastic tool),
+   generation). First items: mini band (progresses glute med beyond
+   the band-free side-lying abduction / side-plank leg raise), jump rope (canonical elastic tool),
    rings/suspension strap (biggest exercise-count-per-gram).
 4. **Map layer** — plot corners from OneMap/data.gov.sg; saved corners
    pin to locations. View free for everyone; personal layer ("my
@@ -470,6 +473,18 @@ Format: `[decision] what — why. (supersedes: none unless noted)`
   previous session in simulation → 17% after the flip). Equipment still
   wins whenever it wasn't just done, so machines still show up most
   sessions. (supersedes: the ordering key in [equipment-wins])
+- [gap-fill] +30 exercises from a coverage simulation (presets × focuses
+  × levels): post rows (no-bar horizontal pull — a solid post, same
+  assumption as the assisted squat), B-stance RDL, bridge walkout,
+  heel-elevated SL bridge, Nordic under push-up bars (PCN had no L4 hip),
+  lateral lunge, Cossack, skater squat, FFE split squat, Peterson step-up,
+  Copenhagen planks, side-lying abduction + side-plank leg raise (band-free
+  glute med), plank shoulder taps (anti-rotation), face pulls, sit-up-bench
+  Y-T raise + reverse crunch, FE row under parallel bars, tib/calf
+  progressions, flexed-arm hang, push/pike tempo variants. Exercises Dataset
+  (hasaneyldrm) used as a name checklist only — its text is often wrong and
+  its media is not licensed; all text written fresh. Rejected: curtsy and
+  sissy squats, unloaded Jefferson curl, towel rows, planche/flag/muscle-up.
 - [two-tap] Settings + last corner persist; each saved corner has ▶ Go
   (load corner → fresh seed → Workout tab) and the Equipment tab opens
   with "▶ Go — same as last time". Open app → Go is the target flow.

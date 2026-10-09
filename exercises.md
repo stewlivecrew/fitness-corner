@@ -202,6 +202,15 @@ yet built in (use this to stage new exercise ideas before they're ready).
 - cue: Head travels forward of your hands, making a triangle with them — elbows point back, not out.
 - status: active
 
+### Pike push-up — 3-second lowering
+- level: 3
+- requires: (none)
+- reps: 5–8
+- muscles: shoulders, triceps, abs
+- how: Start in a push-up position, then walk your feet toward your hands until your hips point at the sky and your body makes an upside-down V. Take a slow count of three to lower the top of your head toward the ground a little in front of your hands, then press back up.
+- cue: Head and hands make a triangle on the ground. If your hips start sinking toward a push-up, the set is done.
+- status: active
+
 ## Vertical Pull
 
 ### Dead hang + scapular pulls
@@ -355,6 +364,15 @@ yet built in (use this to stage new exercise ideas before they're ready).
 - muscles: lats, upperBack, shoulders
 - how: Lie face down with your arms by your sides, palms facing the ground, and your forehead resting just off the ground. Lift your hands and chest slightly, then sweep both straight arms out to the sides and overhead in a wide arc, as if making a snow angel, and sweep them back to your hips.
 - cue: Honest stand-in, not a pull-up — it wakes up the lats and upper back. Hands stay off the ground the whole arc.
+- status: active
+
+### Negative chin-up
+- level: 2
+- requires: highBar
+- reps: 4–6 slow
+- muscles: biceps, lats, forearms
+- how: Grip the bar with palms facing you, hands shoulder-width apart, and jump or step up until your chin is over the bar. Lower yourself as slowly as you can (count to 5) until your arms are completely straight. Drop off, rest a moment, and repeat.
+- cue: Fight hardest through the last third, where most people give up and fall. Finish every rep in a full straight-arm hang.
 - status: active
 
 ## Horizontal Push
@@ -539,6 +557,33 @@ yet built in (use this to stage new exercise ideas before they're ready).
 - cue: Hips stay in line with your shoulders and knees — don't leave your bottom up in the air.
 - status: active
 
+### Close-grip push-up
+- level: 2
+- requires: (none)
+- reps: 8–12
+- muscles: triceps, chest, shoulders
+- how: Start in a push-up position with your hands directly under your shoulders, just inside shoulder width, and your body straight from head to heels. Lower your chest toward your hands with your elbows brushing your ribs, then press back up.
+- cue: Elbows point back, not out. If they flare, your hands are too narrow, so widen them a little.
+- status: active
+
+### Pause push-up
+- level: 3
+- requires: (none)
+- reps: 6–10
+- muscles: chest, triceps, shoulders, abs
+- how: Start in a push-up position, hands slightly wider than your shoulders and body straight from head to heels. Lower until your chest is about 2cm off the ground, hold still for 2 seconds, then press back up.
+- cue: No bouncing out of the bottom. The pause takes away the spring, so every rep is pure strength.
+- status: active
+
+### Pseudo-planche push-up (floor)
+- level: 4
+- requires: (none)
+- reps: 4–8
+- muscles: shoulders, chest, triceps, abs
+- how: Start in a push-up position with your hands beside your lower ribs, fingers turned out to the sides. Lean your shoulders forward past your hands, then lower and press while keeping that lean the whole time.
+- cue: Lean, don't sag: squeeze your glutes and round your upper back slightly. Ease off if your wrists complain, and start with a small lean.
+- status: active
+
 ## Horizontal Pull
 
 ### Incline row
@@ -647,6 +692,60 @@ yet built in (use this to stage new exercise ideas before they're ready).
 - muscles: upperBack, lats
 - how: Lie on your back with your knees bent and feet flat. Bend your elbows to 90° with your upper arms by your sides. Drive your elbows down into the ground to lift your upper back and shoulders a few centimetres off the ground, hold 3 seconds, then lower.
 - cue: Honest floor stand-in for a row — squeeze your shoulder blades together as the elbows press down. A waist-height bar or railing unlocks real rows.
+- status: active
+
+### Post row
+- level: 1
+- requires: (none)
+- reps: 8–12
+- muscles: upperBack, lats, biceps, forearms
+- how: Stand facing a solid upright post (a fitness-corner frame post or a thick lamp post, never a sign that wobbles), toes close to its base. Wrap both hands around it at chest height and lean back until your arms are straight and your body is in a line. Pull your chest to your hands, then lower slowly.
+- cue: Elbows drive back past your ribs and your shoulder blades squeeze together. Walk your feet closer to the post to make it harder. It's lighter than a bar row, but it's a real pull.
+- status: active
+
+### Single-arm post row
+- level: 2
+- requires: (none)
+- reps: 6–10 / side
+- muscles: upperBack, lats, biceps, obliques
+- how: Stand facing a solid upright post with your right foot near its base. Grip it with your right hand at chest height, left hand on your hip, and lean back until your right arm is straight. Pull your chest to your right hand, lower slowly, then switch sides.
+- cue: Stay square to the post. If your chest twists open to finish the rep, step your feet back a little.
+- status: active
+
+### Bodyweight face pull (low bar)
+- level: 2
+- requires: lowBar
+- reps: 8–12
+- muscles: upperBack, shoulders
+- how: Grip the low bar overhand with your hands shoulder-width apart, then walk your feet forward under it and lean back until your arms are straight and your body is in a line. Pull your forehead toward the bar with your elbows high and wide, then lower slowly.
+- cue: Finish with your hands beside your ears and thumbs pointing back, like a double-biceps pose. It's shoulder-health work, so keep it slow and smooth.
+- status: active
+
+### Bodyweight face pull (parallel bars)
+- level: 2
+- requires: parallelBars
+- reps: 8–12
+- muscles: upperBack, shoulders
+- how: Stand beside one parallel bar and grip it overhand with both hands, shoulder-width apart. Walk your feet forward under it and lean back until your arms are straight. Pull your forehead toward the bar with your elbows high and wide, then lower slowly.
+- cue: Finish with your hands beside your ears and thumbs pointing back. The more upright you stand, the easier it gets.
+- status: active
+
+### Chest-supported Y-T raise (sit-up bench)
+- level: 2
+- requires: situpBench
+- reps: 6–8 per letter
+- muscles: upperBack, shoulders
+- how: Lie face down along the sit-up board with your head at the high end and your chest on the pad, arms hanging toward the ground. Raise both arms forward into a Y with thumbs up and lower them, then raise them out to the sides into a T and lower them. That's one round.
+- cue: Lead with your shoulder blades, not your hands. It's light activation work for the muscles that keep your shoulders healthy, not a heavy row.
+- status: active
+
+### Feet-elevated row under parallel bars
+- level: 3
+- requires: parallelBars, bench
+- reps: 6–10
+- muscles: upperBack, lats, biceps
+- how: Lie face up between the parallel bars with your heels up on a bench or ledge, and grip one bar in each hand with straight arms so your body hangs in a line. Pull your chest up between the bars, then lower with control.
+- cue: Squeeze your glutes so your hips don't drop. Your chest should reach bar height on every rep.
 - status: active
 
 ## Knee Dominant
@@ -841,6 +940,51 @@ yet built in (use this to stage new exercise ideas before they're ready).
 - cue: Weight in your heels and knees over your ankles — go higher if your knees complain.
 - status: active
 
+### Lateral lunge
+- level: 2
+- requires: (none)
+- reps: 8–10 / side
+- muscles: quads, glutes, hamstrings
+- how: Stand with your feet about twice shoulder-width apart, toes forward. Shift your weight to your right foot, bending your right knee and sitting your hips back, while your left leg stays straight with its foot flat. Push back to the middle, then go to the left.
+- cue: Right knee tracks over your right toes and your chest stays proud. Only go as deep as you can with that heel flat.
+- status: active
+
+### Front-foot-elevated split squat
+- level: 2
+- requires: step
+- reps: 8–10 / leg
+- muscles: quads, glutes
+- how: Put your left foot up on the step and your right foot about a stride behind you on the ground. Hold a post or bar for balance if you need it. Sink straight down, letting your left knee travel forward past your toes, until your right knee nearly touches the ground. Stand back up, finish the set, then switch legs.
+- cue: Front heel stays down. Go only as deep as is pain-free; depth comes with weeks, not reps. It's the on-ramp to the ATG split squat.
+- status: active
+
+### Peterson step-up
+- level: 2
+- requires: step
+- reps: 10–15 / leg
+- muscles: quads
+- how: Stand beside the step with your left foot on it and your left heel raised, right foot on the ground. Lower your left heel as you press through the left foot to straighten that leg, until your right foot lifts a few centimetres. Lower slowly, finish the set, then switch legs.
+- cue: Small range, slow, and the left knee pushes forward over your toes. It strengthens the inner quad that protects your knee.
+- status: active
+
+### Cossack squat
+- level: 3
+- requires: (none)
+- reps: 5–8 / side
+- muscles: quads, glutes, hamstrings
+- how: Stand very wide with your toes turned slightly out, holding a post in front of you if you need balance. Sit down over your right leg as low as you can while your left leg stays straight with its toes pointing up. Push back to the middle, then go to the left.
+- cue: Keep your right heel down and your chest up. Sitting on a box-height target first is fine while your range builds.
+- status: active
+
+### Skater squat
+- level: 4
+- requires: (none)
+- reps: 4–6 / leg
+- muscles: quads, glutes
+- how: Stand on your left leg with your right knee bent so your right foot is behind you, arms reaching forward. Lower slowly until your right knee lightly touches the ground behind your left heel, then stand back up on the left leg. Finish the set, then switch legs.
+- cue: Touch the knee down, don't drop it. Lean your chest forward as a counterweight, and tap a post to stay steady if you need to.
+- status: active
+
 ## Hip Dominant
 
 ### Elephant walk
@@ -931,6 +1075,60 @@ yet built in (use this to stage new exercise ideas before they're ready).
 - muscles: hamstrings, glutes, lowerBack
 - how: Stand with your back to a wall, heels about a foot-length away from it, knees soft. Keeping your back flat, push your hips backward until your bottom taps the wall, then squeeze your glutes to stand tall.
 - cue: Hips go back, not down — you should feel the stretch in the back of your thighs.
+- status: active
+
+### Side-lying hip abduction
+- level: 1
+- requires: (none)
+- reps: 12–15 / side
+- muscles: glutes
+- how: Lie on your left side with your legs straight and stacked, head resting on your left arm. Lift your right leg to about knee height above the left with your toes pointing forward, then lower it slowly. Finish the set, then roll over to the other side.
+- cue: Lead with your heel, slightly behind you, and don't roll backward. The burn on the side of your hip is the glute muscle that steadies every step and landing.
+- status: active
+
+### B-stance RDL
+- level: 2
+- requires: (none)
+- reps: 8–12 / leg
+- muscles: hamstrings, glutes, lowerBack
+- how: Stand tall, then slide your right foot back so only its toes touch the ground beside your left heel, with most of your weight on your left leg and that knee soft. Push your hips back and lower your chest until you feel a stretch in the back of your left thigh, then squeeze your glutes to stand up. Finish the set, then switch legs.
+- cue: The back foot is a kickstand for balance, not a second leg. Keep your back flat and your hips square. It's the step between the wall tap and the single-leg RDL.
+- status: active
+
+### Bridge walkout
+- level: 2
+- requires: (none)
+- reps: 6–8
+- muscles: hamstrings, glutes
+- how: Lie on your back with your knees bent and feet flat, then lift your hips into a glute bridge. Keeping your hips up, walk your heels away from you in small steps until your legs are nearly straight, then walk them back in. That's one rep.
+- cue: Stop walking out the moment your hips start to sag. A shorter walk with high hips beats a long one on the ground.
+- status: active
+
+### Heel-elevated single-leg bridge (bench)
+- level: 3
+- requires: bench
+- reps: 6–10 / leg
+- muscles: hamstrings, glutes
+- how: Lie on your back with your right heel up on the edge of the bench, right knee slightly bent, and your left knee pulled in toward your chest. Drive down through your right heel to lift your hips until your body is straight from shoulders to knee, pause, then lower. Finish the set, then switch legs.
+- cue: Pull your heel toward you as if dragging the bench. That's what puts the work into the hamstring instead of the lower back.
+- status: active
+
+### Heel-elevated single-leg bridge (step)
+- level: 3
+- requires: step
+- reps: 6–10 / leg
+- muscles: hamstrings, glutes
+- how: Lie on your back with your right heel up on the step, right knee slightly bent, and your left knee pulled in toward your chest. Drive down through your right heel to lift your hips until your body is straight from shoulders to knee, pause, then lower. Finish the set, then switch legs.
+- cue: Pull your heel toward you as if dragging the step. That's what puts the work into the hamstring instead of the lower back.
+- status: active
+
+### Nordic curl negative (push-up bars)
+- level: 4
+- requires: pushupBars
+- reps: 3–5 slow
+- muscles: hamstrings, glutes
+- how: Kneel on something soft (a folded shirt works) with your heels hooked firmly under a push-up bar behind you. Keeping your body straight from knees to head, hands up by your chest, lower yourself forward as slowly as you can, then catch yourself with your hands. Push back up to kneeling and repeat.
+- cue: Hips stay forward the whole way, with no bending at the waist. Check the bar can't move before you start.
 - status: active
 
 ## Core
@@ -1221,6 +1419,51 @@ yet built in (use this to stage new exercise ideas before they're ready).
 - muscles: abs
 - how: Lie on your back with your arms pointing at the sky and your knees bent at 90° above your hips. Keeping your lower back pressed into the ground, slowly lower one foot — say your right — to tap your heel on the ground, bring it back, then do your left.
 - cue: If your lower back lifts off the ground, don't lower the foot as far.
+- status: active
+
+### Plank shoulder taps
+- level: 2
+- requires: (none)
+- reps: 8–10 / side
+- muscles: abs, obliques, shoulders
+- how: Start in a high plank on straight arms, feet a little wider than your hips. Lift your right hand to tap your left shoulder and put it back down, then tap your right shoulder with your left hand. Keep alternating.
+- cue: Hips don't sway: imagine a cup of water on your lower back. Widen your feet if you're rocking, or drop to your knees to make it easier.
+- status: active
+
+### Copenhagen plank (short lever)
+- level: 2
+- requires: bench
+- reps: 15–25s / side
+- muscles: obliques, abs
+- how: Lie on your left side next to the bench with your left forearm on the ground under your shoulder. Rest the inside of your right knee on the bench, then lift your hips until your body is straight, letting your left leg hang free under the bench. Hold, then switch sides.
+- cue: Press the top knee down into the bench and feel the inner thigh work. It's a groin-protection staple. Lower your hips if it pinches.
+- status: active
+
+### Copenhagen plank (long lever)
+- level: 3
+- requires: bench
+- reps: 15–30s / side
+- muscles: obliques, abs
+- how: Lie on your left side next to the bench with your left forearm on the ground under your shoulder. Rest the inside of your right ankle on the bench, then lift your hips until your body is straight, letting your left leg hang free under the bench. Hold, then switch sides.
+- cue: Press the top ankle down into the bench. Go back to the knee version if your hips droop before the time is up.
+- status: active
+
+### Side plank with top-leg raise
+- level: 3
+- requires: (none)
+- reps: 8–10 / side
+- muscles: obliques, glutes, abs
+- how: Get into a side plank on your left forearm with your elbow under your shoulder and your body straight from head to heels. Keeping your hips up, raise your right leg about 30cm and lower it with control. Finish the set, then switch sides.
+- cue: Hips stay stacked and up, with no rolling forward. It trains your obliques and the side of your hip at once.
+- status: active
+
+### Decline reverse crunch (sit-up bench)
+- level: 2
+- requires: situpBench
+- reps: 8–12
+- muscles: abs
+- how: Lie face up on the sit-up board with your head at the high end, holding the foot pad or frame behind your head. Bend your knees, then curl them toward your chest until your hips lift off the board. Lower slowly until your legs are almost straight.
+- cue: Roll your hips up rather than swinging your legs. If your lower back arches at the bottom, stop the lowering higher.
 - status: active
 
 ## Grip / Athletic
@@ -1666,5 +1909,32 @@ yet built in (use this to stage new exercise ideas before they're ready).
 - muscles: calves
 - how: Stand facing a wall or post with your fingertips resting on it for balance, feet hip-width apart. Rise up onto the balls of your feet as high as you can, pause for a second, then lower your heels slowly.
 - cue: Take 2 seconds to lower — the slow way down does most of the work.
+- status: active
+
+### Single-leg tibialis raise
+- level: 2
+- requires: (none)
+- reps: 12–15 / leg
+- muscles: calves
+- how: Stand with your back against a wall or post and walk your heels about 30cm out. Lift your left foot off the ground. Keeping your right leg straight, pull your right toes up toward your shin as high as you can, pause, and lower slowly. Finish the set, then switch legs.
+- cue: Same rules as the two-leg version: walk your feet further out to make it harder. A burn in the front of the shin is the goal.
+- status: active
+
+### Slow single-leg calf raise (ground)
+- level: 2
+- requires: (none)
+- reps: 10–12 / leg
+- muscles: calves
+- how: Stand on your right foot with one hand on a wall or post for balance. Rise onto the ball of your foot as high as you can, hold for 1 second, then lower over 3 seconds. On alternate sets, keep the knee slightly bent the whole time to hit the lower calf (soleus). Finish the set, then switch legs.
+- cue: Push through your big toe and don't roll out onto the little toes. Slow on the way down is where the work is.
+- status: active
+
+### Flexed-arm hang
+- level: 2
+- requires: highBar
+- reps: 15–30s
+- muscles: forearms, biceps, lats
+- how: Grip the bar with palms facing you, hands shoulder-width apart, and jump or step up until your chin is above the bar. Hold that position as long as you can, then lower yourself slowly when you start to slip.
+- cue: Shoulders down and chest toward the bar. When your chin drops below the bar, the hold is over.
 - status: active
 
