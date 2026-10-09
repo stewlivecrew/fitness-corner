@@ -427,6 +427,9 @@ see the design doc summarised in the `[fitness-test]` decision entry.
   name, plus a small "Regular · bronze · 7 workouts · 3 to silver" line.
   Saved (grey) / Verified (grey-green, map corner you confirmed) → First
   workout (green, 1) → Regular bronze (5) → silver (10) → gold (25).
+  Silver = steel blue `#557495` (4.9:1 on white; owner 2026-10-09 — the
+  old grey `#7E8A96` looked like Verified), also used for Trailblazer;
+  Verified stays neutral grey `#7C8A80`, Saved light grey.
 - **All numbers live in `BADGE_CONFIG`** (top of the JSX):
   `gpsRadiusM` 150, `cornerTiers`, `explorerTiers`
   (Explorer 1 / Pathfinder 3 / Trailblazer 10 / Island-wide 25 unique

@@ -509,7 +509,7 @@ const BADGE_CONFIG = {
   cornerTiers: [
     { min: 1, label: "First workout", color: "#2E7D46" },
     { min: 5, label: "Regular · bronze", color: "#A9682E" },
-    { min: 10, label: "Regular · silver", color: "#7E8A96" },
+    { min: 10, label: "Regular · silver", color: "#557495" },
     { min: 25, label: "Regular · gold", color: "#C99A06" },
   ],
   // Profile: unique corners with at least one counted workout.
@@ -518,7 +518,7 @@ const BADGE_CONFIG = {
   explorerTiers: [
     { min: 1, label: "Explorer", color: "#2E7D46" },
     { min: 3, label: "Pathfinder", color: "#A9682E" },
-    { min: 10, label: "Trailblazer", color: "#7E8A96" },
+    { min: 10, label: "Trailblazer", color: "#557495" },
     { min: 25, label: "Island-wide", color: "#C99A06" },
   ],
 };
