@@ -49,7 +49,7 @@ accounts, no external runtime requests. Node.js (ESLint + esbuild) is a
   + SW registration; the artifact's Google Fonts `@import` line is
   stripped in the build). These are what GitHub Pages serves.
 - `icons/` — `icon-source.png` (1024², opaque, full-bleed retro-sunset
-  artwork: Marina Bay Sands + pull-up bar + parallel bars) is the source;
+  artwork: Marina Bay Sands + pull-up bar) is the source;
   the PNGs (192, 512, maskable 512 — full-bleed so it survives any mask —
   180 apple-touch, 32 favicon) are Lanczos downscales of it (Pillow),
   committed. Keep them opaque (iOS fills transparency with black).
