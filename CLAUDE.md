@@ -453,6 +453,16 @@ see the design doc summarised in the `[fitness-test]` decision entry.
   it's rebuilt once: EVERY `fc-log` entry at a saved corner counts, plus
   older visits no longer in the 100-entry log are kept (matched by date).
   Exported with every other `fc-*` key; Reset deletes it.
+- **Your progress card (owner 2026-10-09):** title = current explorer
+  level in its colour, or "Next up: Explorer" when none (no "Not
+  started"). Under it a 4-step level track from `explorerTiers` (each
+  has a `color`): earned steps filled in their colour, the next step
+  outlined + bold in the accent (`T.orange`), future steps grey; "N
+  corners" under each. Then one plain action line: "Finish 1 workout at
+  a saved corner to unlock Explorer" (0 corners) / "Train at N more
+  corners to unlock <next>" (N = next.min − distinct corners) /
+  "Island-wide — every level unlocked". Fits 390 px. (supersedes: "0
+  corners trained at · 1 more to Explorer".)
 - **Profile:** explorer tier (unique corners with ≥ 1 counted workout),
   corners verified (map corners confirmed and still saved), counted
   workouts, weekly streak (Monday-start weeks, SG local time, with ≥ 1

@@ -555,11 +555,13 @@ const BADGE_CONFIG = {
     { min: 25, label: "Regular · gold", color: "#C99A06" },
   ],
   // Profile: unique corners with at least one counted workout.
+  // Shown as a 4-step level track on the Your progress card (earned steps
+  // filled in their colour, next step outlined in the accent, rest grey).
   explorerTiers: [
-    { min: 1, label: "Explorer" },
-    { min: 3, label: "Pathfinder" },
-    { min: 10, label: "Trailblazer" },
-    { min: 25, label: "Island-wide" },
+    { min: 1, label: "Explorer", color: "#2E7D46" },
+    { min: 3, label: "Pathfinder", color: "#A9682E" },
+    { min: 10, label: "Trailblazer", color: "#7E8A96" },
+    { min: 25, label: "Island-wide", color: "#C99A06" },
   ],
 };
 // Counting rule v2 (owner, 2026-10-09): a workout counts when it's saved at a
@@ -600,6 +602,7 @@ function weeklyStreak(visits, nowMs = Date.now()) {
 function cornerStats(visits, corners, placeByName) {
   const per = {};
   visits.forEach((v) => {
+    if (!v || !v.corner) return;
     const s = per[v.corner] || (per[v.corner] = { count: 0, last: null });
     s.count++; if (!s.last || v.at > s.last) s.last = v.at;
   });
@@ -3795,7 +3798,8 @@ function FitnessCornerGenerator() {
             <button onClick={() => setStep(0)} className="disp" style={{ background: "transparent", border: "none", color: T.green, fontWeight: 800, fontSize: 13, textTransform: "uppercase", letterSpacing: "0.06em", padding: "0 0 10px" }}>‹ Equipment</button>
             {(() => {
               const ex = stats.explorer;
-              const exLabel = ex.tier ? ex.tier.label : "Not started";
+              const exLabel = ex.tier ? ex.tier.label : "none";
+              const need = ex.next ? ex.next.min - stats.unique : 0;
               const Stat = ({ k, v, sub }) => (
                 <div data-stat={k} style={{ flex: 1, minWidth: 0 }}>
                   <div className="disp" style={{ fontWeight: 800, fontSize: 22, color: T.ink, lineHeight: 1 }}>{v}</div>
@@ -3805,9 +3809,30 @@ function FitnessCornerGenerator() {
               return (
                 <div data-profile style={{ background: T.card, border: `2px solid ${T.line}`, borderRadius: 10, padding: "12px 14px", marginBottom: 14 }}>
                   <div className="disp" style={{ fontWeight: 800, fontSize: 13, textTransform: "uppercase", letterSpacing: "0.1em", color: T.steel }}>Your progress</div>
-                  <div className="disp" data-explorer={exLabel} style={{ fontWeight: 800, fontSize: 22, textTransform: "uppercase", color: T.green, marginTop: 2 }}>{exLabel}</div>
-                  <div style={{ fontSize: 12.5, color: T.steel }}>
-                    {ex.next ? `${stats.unique} corner${stats.unique === 1 ? "" : "s"} trained at · ${ex.next.min - stats.unique} more to ${ex.next.label}` : `${stats.unique} corners trained at · top level`}
+                  <div className="disp" data-explorer={exLabel} style={{ fontWeight: 800, fontSize: 22, textTransform: "uppercase", color: ex.tier ? ex.tier.color : T.ink, marginTop: 2, lineHeight: 1.15 }}>
+                    {ex.tier ? ex.tier.label : <>Next up: <span style={{ color: T.orange }}>{ex.next.label}</span></>}
+                  </div>
+                  <div data-level-track style={{ display: "flex", gap: 4, marginTop: 10 }}>
+                    {BADGE_CONFIG.explorerTiers.map((lv, i) => {
+                      const state = i <= ex.idx ? "earned" : i === ex.idx + 1 ? "next" : "future";
+                      return (
+                        <div key={lv.label} data-level-step={lv.label} data-state={state} style={{ flex: 1, minWidth: 0, textAlign: "center" }}>
+                          <div style={{
+                            borderRadius: 999, padding: "4px 2px", fontSize: 11, lineHeight: 1.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                            fontWeight: state === "future" ? 600 : 800,
+                            background: state === "earned" ? lv.color : state === "next" ? T.card : T.bg,
+                            color: state === "earned" ? "#fff" : state === "next" ? T.orange : "#9AA19A",
+                            border: `2px solid ${state === "earned" ? lv.color : state === "next" ? T.orange : T.bg}`,
+                          }}>{lv.label}</div>
+                          <div style={{ fontSize: 10.5, marginTop: 3, color: state === "next" ? T.orange : state === "earned" ? T.steel : "#9AA19A", fontWeight: state === "next" ? 800 : 500 }}>{lv.min} {lv.min === 1 ? "corner" : "corners"}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div data-progress-action style={{ fontSize: 13, color: T.ink, marginTop: 8, lineHeight: 1.35 }}>
+                    {!ex.next ? <><b>{ex.tier.label}</b> — every level unlocked</>
+                      : stats.unique === 0 ? <>Finish 1 workout at a saved corner to unlock <b style={{ color: T.orange }}>{ex.next.label}</b></>
+                        : <>Train at {need} more corner{need === 1 ? "" : "s"} to unlock <b style={{ color: T.orange }}>{ex.next.label}</b></>}
                   </div>
                   <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
                     <Stat k="unique" v={stats.unique} sub="corners trained at" />
