@@ -641,6 +641,681 @@ function StationPlate({ note, num, eyebrow, ex, setsText, canSwap, onSwap, guide
   );
 }
 
+/* ------------------------------------------------------------------ */
+/* FITNESS TEST — gated, capped field test that seeds per-pattern      */
+/* levels. Design + sources: CLAUDE.md > Fitness test. Cut-offs are   */
+/* "which tier of OUR exercises can you do cleanly" (RR 3×5–8 rule),  */
+/* sanity-checked against ACSM / US Army / USMC / CDC norms.          */
+/* ------------------------------------------------------------------ */
+const TEST_PATTERNS = ["verticalPush", "verticalPull", "horizontalPush", "horizontalPull", "kneeDominant", "hipDominant", "core", "gripAthletic"];
+const LEVER_IDS = ["chestPress", "latPulldown", "shoulderPressM", "legPressM"];
+const isLever = (ex) => !!ex && ex.req.some((r) => LEVER_IDS.includes(r));
+const RETEST_DAYS = 56; // 8 weeks
+const DAY_MS = 86400000;
+// PAR-Q+ (2025) general health questions, plain-language.
+const PARQ = [
+  "Has a doctor ever said you have a heart condition or high blood pressure?",
+  "Do you get chest pain at rest, in daily life, or when you're active?",
+  "In the last 12 months, have you lost your balance from dizziness, or passed out? (Answer no if it was only from over-breathing during hard exercise.)",
+  "Have you been diagnosed with any other long-term (chronic) medical condition?",
+  "Are you taking prescribed medicine for a long-term condition?",
+  "Do you have (or had in the last 12 months) a bone, joint or muscle problem that being more active could make worse?",
+  "Has a doctor ever said you should only exercise under medical supervision?",
+];
+const PAIN_AREAS = [["shoulder", "Shoulder"], ["elbow", "Elbow / wrist"], ["knee", "Knee"], ["back", "Back"]];
+// Sore today → skip the items that load that area (pattern starts at Beginner).
+const TEST_PAIN_SKIP = { push: ["shoulder", "elbow"], legs: ["knee"], pull: ["shoulder", "elbow"], bridge: ["back"], plank: ["shoulder", "back"], hang: ["shoulder", "elbow"], calf: [] };
+const STOP_RULES = [
+  "Chest pain or pressure, dizziness, unusual breathlessness or nausea → stop the whole test and rest. If chest pain doesn't ease quickly, call 995.",
+  "Sharp or joint pain → stop that item. Muscle burn is fine; sharp pain is not.",
+  "Stop at the first rep that isn't clean — don't grind out ugly reps.",
+  "Unsure between two answers? Pick the lower one. Moving up takes two sessions; moving down takes one tap.",
+  "Hot midday? Test in the morning or evening and keep water close.",
+];
+
+const TEST_ITEMS = {
+  push: {
+    title: "Push-ups", seeds: "Horizontal push · overhead push (inferred)",
+    how: "Hands just wider than shoulders. Lower as one straight plank, then press back to straight arms.",
+    standard: "Straight line head to heels (or knees), chest to a fist's height off the ground, arms fully straight at the top, no sagging hips.",
+    gate: { q: "First: 5 knee push-ups. Could you do 5 clean?", yes: "Yes — did 5", no: "Couldn't do 5" },
+    measure: { kind: "count", label: "Now full push-ups (on your toes) — clean reps", cap: 30, unit: "reps" },
+    extra: (v) => (v >= 5 && v < 15 ? { q: "Optional overhead check: 5 clean pike push-ups (hips high, head lowers toward the ground)?", yes: "Did 5", no: "No / skip" } : null),
+  },
+  legs: {
+    title: "Squat → split squat", seeds: "Legs · knee-dominant",
+    how: "Bodyweight squats first. Then split squats: long step, lower until the back knee lightly touches the ground, stand up. Count your weaker leg.",
+    standard: "Squats: thighs at least parallel, heels down, no hands. Split squats: back knee kisses the ground, front heel stays down, no pushing off your thigh.",
+    gate: { q: "First: 10 bodyweight squats. All 10 clean?", yes: "Yes — 10 clean", no: "Couldn't do 10" },
+    measure: { kind: "count", label: "Split squats — clean reps on your weaker leg", cap: 10, unit: "reps / leg" },
+    extra: (v, ts) => (v >= 10 && ts.bench ? { q: "Expert check: 5 single-leg stand-ups from the bench, each leg — no hands, no rocking?", yes: "Did 5 each leg", no: "Not yet" } : null),
+  },
+  pull: {
+    title: "Hang check → pull-ups", seeds: "Vertical pull · horizontal pull (inferred)",
+    how: "Hands on the bar a little wider than shoulders, palms facing away.",
+    standard: "Start from a dead hang, chin over the bar, no kipping or kicking, full lockout every rep.",
+    gate: { q: "First: hang 10 seconds, arms straight, controlled. Could you?", yes: "Yes — 10 s", no: "Couldn't hang 10 s" },
+    measure: { kind: "count", label: "Pull-ups — clean reps", cap: 10, unit: "reps" },
+    extra: (v) => (v === 0 ? { q: "One slow negative: step or jump so your chin is over the bar, then lower yourself for 3+ seconds under control. Could you?", yes: "Yes — 3 s+", no: "Dropped faster" } : null),
+  },
+  bridge: {
+    title: "Single-leg glute bridge", seeds: "Legs · hip-dominant",
+    how: "Lie on your back, one foot flat near your bottom, the other leg held up. Drive through the heel to lift your hips, lower, repeat. Count your weaker leg.",
+    standard: "Shoulders stay down, hips rise until level with the knee, other leg stays up, hips don't twist.",
+    gate: { q: "First: 10 two-leg bridges. No cramping or pain?", yes: "Yes — 10 fine", no: "Cramp / pain / couldn't" },
+    measure: { kind: "count", label: "Single-leg bridges — clean reps on your weaker leg", cap: 20, unit: "reps / leg" },
+  },
+  plank: {
+    title: "Forearm plank", seeds: "Core",
+    how: "Forearms on the ground under your shoulders, up on your toes, body in one straight line. Start the timer, hold.",
+    standard: "Straight line from head to heels. The test ends the moment your hips sag or pike.",
+    measure: { kind: "time", label: "Plank hold", cap: 90, unit: "s" },
+    extra: (v, ts) => (v >= 90 && ts.bar ? { q: "Expert check: 5 hanging straight-leg raises to hip height, no swinging?", yes: "Did 5", no: "Not yet" } : null),
+  },
+  hang: {
+    title: "Max dead hang", seeds: "Grip / athletic · saves your finisher record",
+    how: "Grab the bar, feet off the ground, arms straight. Start the timer when your feet leave the ground.",
+    standard: "Arms straight, feet off the ground. It ends when your grip opens.",
+    measure: { kind: "time", label: "Dead hang", cap: 90, unit: "s" },
+  },
+  calf: {
+    title: "Single-leg calf raise", seeds: "Grip / athletic (no bar today)",
+    how: "Fingertips on a wall or post for balance, stand on one foot. Rise as high as you can, lower all the way. About one rep every 2 seconds. Count your weaker leg.",
+    standard: "Full height every rep, heel all the way down, no bouncing, fingertips only for balance.",
+    measure: { kind: "count", label: "Calf raises — clean reps on your weaker leg", cap: 25, unit: "reps / leg" },
+  },
+};
+
+function testItemOrder(mode, bar) {
+  if (mode === "bar") return ["pull", "hang"];
+  return bar ? ["push", "legs", "pull", "bridge", "plank", "hang"] : ["push", "legs", "bridge", "plank", "calf"];
+}
+
+// Score a finished test → per-pattern level, plain-language reason, flag.
+// Pure: unit-testable outside React. flags: inferred | estimated | skipped | capped | medical
+function scoreTest(ts) {
+  const L = {}; const R = {}; const F = {};
+  const set = (p, lvl, reason, flag) => { L[p] = lvl; R[p] = reason; if (flag) F[p] = flag; };
+  if (ts.medical) {
+    TEST_PATTERNS.forEach((p) => set(p, 1, "Safety screen: starting gentle — ratings will raise this.", "medical"));
+    return { levels: L, reasons: R, flags: F };
+  }
+  const raw = ts.raw || {}; const sk = ts.skipped || {};
+  const sore = "Skipped (sore today) — starting gentle.";
+  // Push → horizontal push; overhead inferred one level lower.
+  const pu = raw.push || {};
+  if (sk.push) { set("horizontalPush", 1, sore, "skipped"); set("verticalPush", 1, sore, "skipped"); }
+  else if (pu.gate === false) { set("horizontalPush", 1, "Couldn't do 5 knee push-ups yet."); set("verticalPush", 1, "From push-ups — overhead starts at Beginner.", "inferred"); }
+  else {
+    const v = pu.value || 0;
+    const hp = v >= 30 ? 4 : v >= 15 ? 3 : v >= 5 ? 2 : 1;
+    set("horizontalPush", hp, `${v}${v >= 30 ? "+" : ""} clean push-ups.`);
+    if (hp === 2 && pu.extra === true) set("verticalPush", 2, "5 clean pike push-ups.");
+    else set("verticalPush", Math.max(1, hp - 1), "From push-ups — overhead pressing is harder, so one level lower.", "inferred");
+  }
+  // Legs
+  const lg = raw.legs || {};
+  if (sk.legs) set("kneeDominant", 1, sore, "skipped");
+  else if (lg.gate === false) set("kneeDominant", 1, "Couldn't do 10 clean squats yet.");
+  else {
+    const v = lg.value || 0;
+    if (v < 10) set("kneeDominant", 2, `${v} split squats per leg.`);
+    else if (lg.extra === true) set("kneeDominant", 4, "10 split squats per leg + 5 single-leg stand-ups.");
+    else if (ts.bench) set("kneeDominant", 3, "10 split squats per leg.");
+    else set("kneeDominant", 3, "10 split squats per leg (no bench to check Expert).", "capped");
+  }
+  // Pull → vertical pull; rows start at the same level.
+  const pl = raw.pull || {};
+  if (!ts.bar) {
+    const hp = L.horizontalPush || 1;
+    const est = F.horizontalPush === "skipped" ? 1 : Math.min(hp, 2);
+    set("verticalPull", est, "No bar — estimated. Do the bar check next time you're at a bar.", "estimated");
+    set("horizontalPull", est, "No bar — estimated. Do the bar check next time you're at a bar.", "estimated");
+  } else if (sk.pull) { set("verticalPull", 1, sore, "skipped"); set("horizontalPull", 1, sore, "skipped"); }
+  else {
+    let vp; let why;
+    if (pl.gate === false) { vp = 1; why = "Couldn't hang 10 s yet."; }
+    else {
+      const v = pl.value || 0;
+      if (v === 0) { vp = pl.extra === true ? 2 : 1; why = pl.extra === true ? "0 pull-ups, but a controlled 3 s negative." : "0 pull-ups, no slow negative yet."; }
+      else { vp = v >= 10 ? 4 : v >= 5 ? 3 : 2; why = `${v}${v >= 10 ? "+" : ""} clean pull-up${v === 1 ? "" : "s"}.`; }
+    }
+    set("verticalPull", vp, why);
+    set("horizontalPull", vp, "Rows start at your pull-up level — ratings fine-tune it.", "inferred");
+  }
+  // Bridge (test caps hip at Advanced: L4 = Nordics)
+  const br = raw.bridge || {};
+  if (sk.bridge) set("hipDominant", 1, sore, "skipped");
+  else if (br.gate === false) set("hipDominant", 1, "10 two-leg bridges weren't comfortable yet.");
+  else {
+    const v = br.value || 0;
+    if (v >= 20) set("hipDominant", 3, "20 single-leg bridges per leg. The test tops out at Advanced (Expert is Nordic curls) — ratings can promote you.", "capped");
+    else set("hipDominant", v >= 10 ? 2 : 1, `${v} single-leg bridges per leg.`);
+  }
+  // Plank
+  const pk = raw.plank || {};
+  if (sk.plank) set("core", 1, sore, "skipped");
+  else {
+    const v = pk.value || 0;
+    if (v >= 90 && pk.extra === true) set("core", 4, "90 s plank + 5 hanging straight-leg raises.");
+    else if (v >= 90) set("core", 3, ts.bar ? "90 s plank." : "90 s plank (no bar to check Expert).", ts.bar ? null : "capped");
+    else set("core", v >= 30 ? 2 : 1, `${v} s plank.`);
+  }
+  // Grip: dead hang (bar) or calf raise (ground)
+  if (ts.bar || ts.mode === "bar") {
+    const hg = raw.hang || {};
+    if (pl.gate === false) set("gripAthletic", 1, "Couldn't hang 10 s yet.");
+    else if (sk.hang) set("gripAthletic", 1, sore, "skipped");
+    else {
+      const v = hg.value || 0;
+      set("gripAthletic", v >= 90 ? 4 : v >= 45 ? 3 : v >= 20 ? 2 : 1, `${v}${v >= 90 ? "+" : ""} s dead hang.`);
+    }
+  } else {
+    const cf = raw.calf || {};
+    const v = cf.value || 0;
+    if (v >= 25) set("gripAthletic", 3, "25 single-leg calf raises (no bar to check Expert).", "capped");
+    else set("gripAthletic", v >= 10 ? 2 : 1, `${v} single-leg calf raises.`);
+  }
+  return { levels: L, reasons: R, flags: F };
+}
+
+// Global level = median of the 8 pattern levels, rounded down.
+function medianLevel(levels) {
+  const v = TEST_PATTERNS.map((p) => levels[p] || 1).sort((a, b) => a - b);
+  return Math.floor((v[3] + v[4]) / 2);
+}
+
+// Raw numbers for the Log's before/after table.
+function testMetrics(rec) {
+  if (!rec) return [];
+  if (rec.medical) return [["Safety screen", "started gentle"]];
+  const raw = rec.raw || {}; const sk = rec.skipped || {};
+  const fmt = (id, f) => (sk[id] ? "skipped" : raw[id] ? f(raw[id]) : "—");
+  const rows = [
+    ["Push-ups", fmt("push", (r) => (r.gate === false ? "< 5 knee" : String(r.value)))],
+    ["Split squats / leg", fmt("legs", (r) => (r.gate === false ? "< 10 squats" : String(r.value) + (r.extra === true ? " + 1-leg ✓" : "")))],
+    ["Pull-ups", !rec.bar ? "no bar" : fmt("pull", (r) => (r.gate === false ? "hang < 10 s" : String(r.value) + (r.value === 0 && r.extra === true ? " (negative ✓)" : "")))],
+    ["Single-leg bridge / leg", fmt("bridge", (r) => (r.gate === false ? "< 10 two-leg" : String(r.value)))],
+    ["Plank", fmt("plank", (r) => r.value + " s" + (r.extra === true ? " + leg raises ✓" : ""))],
+  ];
+  if (rec.bar) rows.push(["Dead hang", raw.pull && raw.pull.gate === false ? "< 10 s" : fmt("hang", (r) => r.value + " s")]);
+  else rows.push(["Calf raises / leg", fmt("calf", (r) => String(r.value))]);
+  return rows;
+}
+
+// Fresh test state. Bar / bench answers are pre-filled from what's ticked.
+// eqList null (first open, nothing ticked yet) → the setup screen asks.
+function newTestRun(mode, eqList = null) {
+  const bar = eqList ? eqList.includes("highBar") || eqList.includes("monkeyBars") : null;
+  const bench = eqList ? eqList.includes("bench") || eqList.includes("step") : null;
+  return {
+    v: 1, mode, stage: "intro", parq: null, pain: null, unwell: null, medical: false,
+    bar: mode === "bar" ? true : bar, bench, items: mode === "bar" ? testItemOrder("bar", true) : [],
+    idx: -1, sub: null, raw: {}, skipped: {}, restUntil: null, chosen: null, startedAt: Date.now(),
+  };
+}
+
+/* ---------- test UI pieces ---------- */
+const tBtn = (bg, fg, extra = {}) => ({ background: bg, color: fg, border: "none", borderRadius: 10, padding: "12px 14px", fontWeight: 800, fontSize: 15, textTransform: "uppercase", letterSpacing: "0.05em", minHeight: 48, ...extra });
+
+function YesNo({ value, onChange, yes = "Yes", no = "No", testid }) {
+  return (
+    <div style={{ display: "flex", gap: 6, marginTop: 6 }} data-yesno={testid}>
+      {[[true, yes], [false, no]].map(([v, lbl]) => (
+        <button
+          key={String(v)}
+          onClick={() => onChange(v)}
+          data-answer={v ? "yes" : "no"}
+          className="disp"
+          style={{
+            flex: 1, minHeight: 44, borderRadius: 8, fontWeight: 800, fontSize: 14, textTransform: "uppercase",
+            border: `2px solid ${value === v ? T.green : T.line}`, background: value === v ? T.green : T.card, color: value === v ? "#fff" : T.ink,
+          }}
+        >
+          {lbl}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function StopRules({ compact }) {
+  const [open, setOpen] = useState(!compact);
+  return (
+    <div data-stop-rules style={{ background: T.safetyBg, color: T.safetyText, borderRadius: 8, padding: "8px 10px", marginTop: 12, fontSize: 13, lineHeight: 1.45 }}>
+      <button onClick={() => setOpen((o) => !o)} className="disp" style={{ background: "transparent", border: "none", padding: 0, color: T.safetyText, fontWeight: 800, fontSize: 13, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+        {open ? "▾" : "▸"} Stop rules
+      </button>
+      {open && <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>{STOP_RULES.map((s, i) => <li key={i}>{s}</li>)}</ul>}
+    </div>
+  );
+}
+
+function TestCounter({ cap, unit, onSave }) {
+  const [n, setN] = useState(0);
+  const step = (d) => setN((x) => Math.max(0, Math.min(cap, x + d)));
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, marginTop: 10 }}>
+        <button onClick={() => step(-1)} aria-label="One less" className="disp" style={tBtn(T.card, T.green, { border: `2px solid ${T.green}`, minWidth: 56, fontSize: 24 })}>−</button>
+        <input
+          type="number" inputMode="numeric" data-test-count value={n}
+          onChange={(e) => setN(Math.max(0, Math.min(cap, Math.round(Number(e.target.value) || 0))))}
+          style={{ width: 90, textAlign: "center", fontSize: 34, fontWeight: 800, fontFamily: "'Barlow Condensed', sans-serif", border: `2px solid ${T.line}`, borderRadius: 10, padding: "4px 0", background: T.card }}
+        />
+        <button onClick={() => step(1)} aria-label="One more" className="disp" style={tBtn(T.yellow, T.greenDark, { minWidth: 56, fontSize: 24 })}>+</button>
+      </div>
+      <div style={{ textAlign: "center", fontSize: 12.5, color: T.steel, marginTop: 4 }}>{unit} · stop at {cap} — that already proves the top level this test can give</div>
+      <button onClick={() => onSave(n)} data-test-save className="disp" style={tBtn(T.green, "#fff", { width: "100%", marginTop: 12 })}>
+        Save — {n}{n >= cap ? "+" : ""} {unit.split(" ")[0]}
+      </button>
+    </div>
+  );
+}
+
+function TestTimer({ cap, onSave, beep, onStart }) {
+  const [start, setStart] = useState(null);
+  const [now, setNow] = useState(0);
+  const [result, setResult] = useState(null);
+  const [typed, setTyped] = useState("");
+  const secs = start ? Math.min(cap, Math.floor((now - start) / 1000)) : 0;
+  useEffect(() => {
+    if (!start) return;
+    const id = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(id);
+  }, [start]);
+  useEffect(() => {
+    if (start && secs >= cap) { setResult(cap); setStart(null); beep && beep(); }
+  }, [start, secs, cap, beep]);
+  const shown = start ? secs : result ?? 0;
+  return (
+    <div>
+      <div className="disp" data-test-timer style={{ textAlign: "center", fontSize: 56, fontWeight: 800, color: T.green, marginTop: 6 }}>
+        {Math.floor(shown / 60)}:{String(shown % 60).padStart(2, "0")}
+      </div>
+      <div style={{ textAlign: "center", fontSize: 12.5, color: T.steel }}>Stops itself at {cap} s — that already proves the top level this test can give</div>
+      {start ? (
+        <button onClick={() => { setResult(secs); setStart(null); }} data-test-stop className="disp" style={tBtn(T.orange, "#fff", { width: "100%", marginTop: 10, fontSize: 18 })}>■ Stop</button>
+      ) : result == null ? (
+        <button onClick={() => { if (onStart) onStart(); setStart(Date.now()); setNow(Date.now()); }} data-test-start className="disp" style={tBtn(T.yellow, T.greenDark, { width: "100%", marginTop: 10, fontSize: 18 })}>▶ Start timer</button>
+      ) : (
+        <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+          <button onClick={() => setResult(null)} className="disp" style={tBtn(T.card, T.green, { flex: 1, border: `2px solid ${T.green}` })}>Redo</button>
+          <button onClick={() => onSave(result)} data-test-save className="disp" style={tBtn(T.green, "#fff", { flex: 2 })}>Save — {result} s</button>
+        </div>
+      )}
+      {!start && result == null && (
+        <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+          <input type="number" inputMode="numeric" data-test-typed value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="Or type seconds (used a watch)" style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: `2px solid ${T.line}`, fontSize: 15, fontFamily: "inherit", background: T.card }} />
+          <button disabled={!(Number(typed) >= 0 && typed !== "")} onClick={() => onSave(Math.max(0, Math.min(cap, Math.round(Number(typed)))))} className="disp" style={tBtn(typed !== "" ? T.green : T.line, "#fff", { padding: "0 14px", minHeight: 44 })}>Save</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// The whole test flow. State `ts` is persisted to fc-test-active on every
+// change, so a reload (or iOS killing the tab) resumes at the same step.
+// A running hold timer is NOT resumed — that item simply restarts.
+function FitnessTest({ initial, hasStorage, isFirst, currentEff, keepEff, onSkip, onCancel, onComplete, beep, unlockAudio }) {
+  const [ts, setTs] = useState(initial);
+  const [nowT, setNowT] = useState(Date.now());
+  const up = (patch) => setTs((s) => ({ ...s, ...patch }));
+  useEffect(() => {
+    if (!hasStorage) return;
+    window.storage.set("fc-test-active", JSON.stringify({ ...ts, savedAt: Date.now() })).catch((e) => console.warn(e));
+  }, [ts, hasStorage]);
+  useEffect(() => {
+    if (!ts.restUntil) return;
+    const id = setInterval(() => setNowT(Date.now()), 500);
+    return () => clearInterval(id);
+  }, [ts.restUntil]);
+  useEffect(() => { window.scrollTo && window.scrollTo(0, 0); }, [ts.stage, ts.idx, ts.sub]);
+
+  const items = ts.items || [];
+  const id = items[ts.idx];
+  const item = id ? TEST_ITEMS[id] : null;
+  const isBar = ts.mode === "bar";
+
+  const defaultChosen = (levels) => {
+    const c = {};
+    Object.keys(levels).forEach((p) => {
+      if (isBar && !["verticalPull", "horizontalPull", "gripAthletic"].includes(p)) return;
+      c[p] = keepEff && keepEff[p] > levels[p] ? keepEff[p] : levels[p];
+    });
+    return c;
+  };
+  // Advance to the next item, skipping ones the safety screen ruled out.
+  const nextItem = (raw, skipped, fromIdx) => {
+    let i = fromIdx + 1;
+    const sk = { ...skipped };
+    while (i < items.length) {
+      const nid = items[i];
+      if ((TEST_PAIN_SKIP[nid] || []).some((a) => (ts.pain || []).includes(a))) { sk[nid] = true; i++; continue; }
+      if (nid === "hang" && raw.pull && raw.pull.gate === false) { i++; continue; } // already failed the 10 s hang
+      break;
+    }
+    if (i >= items.length) {
+      const sc = scoreTest({ ...ts, raw, skipped: sk });
+      up({ raw, skipped: sk, stage: "results", restUntil: null, chosen: defaultChosen(sc.levels) });
+    } else {
+      up({ raw, skipped: sk, stage: "item", idx: i, sub: TEST_ITEMS[items[i]].gate ? "gate" : "measure", restUntil: fromIdx >= 0 ? Date.now() + 75000 : null });
+    }
+  };
+  const saveRaw = (patch, done) => {
+    const r = { ...(ts.raw[id] || {}), ...patch };
+    const raw = { ...ts.raw, [id]: r };
+    if (done) nextItem(raw, ts.skipped || {}, ts.idx);
+    else up({ raw });
+  };
+
+  const card = { background: T.card, border: `2px solid ${T.line}`, borderRadius: 12, padding: "14px 16px", marginBottom: 12 };
+  const h2 = { fontWeight: 800, fontSize: 24, textTransform: "uppercase", lineHeight: 1.1, margin: "2px 0 6px", color: T.ink };
+  const eyebrow = { fontSize: 12.5, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase", color: T.steel };
+  const p = { fontSize: 14.5, color: T.ink, lineHeight: 1.5, margin: "6px 0" };
+  const exitBtn = (
+    <button onClick={() => { if (window.confirm(isFirst && !isBar ? "Leave the fitness test? You can take it any time from the Equipment tab." : "Leave the test? Nothing from this attempt will be saved.")) onCancel(); }} data-test-exit className="disp" style={{ background: "transparent", border: `2px solid ${T.line}`, color: T.steel, borderRadius: 8, padding: "6px 12px", fontWeight: 800, fontSize: 12, textTransform: "uppercase" }}>
+      ✕ Exit
+    </button>
+  );
+  const top = (label) => (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+      <span className="disp" data-test-progress style={{ flex: 1, fontWeight: 800, fontSize: 13, letterSpacing: "0.12em", textTransform: "uppercase", color: T.green }}>{label}</span>
+      {exitBtn}
+    </div>
+  );
+
+  // ---------- intro ----------
+  if (ts.stage === "intro") {
+    return (
+      <div data-test-stage="intro">
+        {top(isBar ? "Bar check" : "Fitness test")}
+        <div style={card}>
+          <div className="disp" style={eyebrow}>{isBar ? "About 3 minutes" : "About 8 minutes · optional"}</div>
+          <h2 className="disp" style={h2}>{isBar ? "Bar check" : "Find your level"}</h2>
+          {isBar ? (
+            <p style={p}>Your pull level was estimated because there was no bar last time. Two quick checks — a hang plus pull-ups, then a max dead hang — set vertical pull, rows and grip properly.</p>
+          ) : (
+            <>
+              <p style={p}>{testItemOrder("full", true).length} short checks set a starting level for each of the 8 movement patterns. After that, your ratings and the Harder / Easier buttons keep fine-tuning it.</p>
+              <ul style={{ ...p, paddingLeft: 20 }}>
+                <li>Every check starts with the easiest version. If it doesn't feel right, you're placed and move on.</li>
+                <li>Each one stops at a cap, so nobody grinds to failure.</li>
+                <li>Clean reps only. Stop at the first rep that isn't clean.</li>
+              </ul>
+              <p style={{ ...p, fontSize: 13, color: T.steel }}>Useful but optional: a bar overhead and a bench or ledge. Best in the morning or evening, with water nearby. No bar today? You'll get a quick bar check later.</p>
+            </>
+          )}
+        </div>
+        <button onClick={() => up({ stage: "safety" })} data-test-begin className="disp" style={tBtn(T.yellow, T.greenDark, { width: "100%", fontSize: 18 })}>▶ Start</button>
+        {isFirst && !isBar ? (
+          <button onClick={onSkip} data-test-skip className="disp" style={tBtn("transparent", T.green, { width: "100%", marginTop: 8, border: `2px solid ${T.green}` })}>Skip — I'll pick a level myself</button>
+        ) : (
+          <button onClick={onCancel} className="disp" style={tBtn("transparent", T.steel, { width: "100%", marginTop: 8, border: `2px solid ${T.line}` })}>Not now</button>
+        )}
+      </div>
+    );
+  }
+
+  // ---------- safety screen (PAR-Q+) ----------
+  if (ts.stage === "safety") {
+    const parq = ts.parq || PARQ.map(() => null);
+    const pain = ts.pain; // null = unanswered, [] = nothing hurts
+    const answered = parq.every((a) => a !== null) && pain !== null && ts.unwell != null;
+    const togglePain = (a) => up({ pain: (pain || []).includes(a) ? pain.filter((x) => x !== a) : [...(pain || []), a] });
+    return (
+      <div data-test-stage="safety">
+        {top("Safety check")}
+        <div style={card}>
+          <div className="disp" style={eyebrow}>Before you start · PAR-Q+ health questions</div>
+          <p style={{ ...p, fontSize: 13.5, color: T.steel }}>Answer each one honestly. Nothing here is stored except whether you answered yes.</p>
+          {PARQ.map((q, i) => (
+            <div key={i} style={{ marginTop: 12 }}>
+              <div style={{ fontSize: 14, color: T.ink, lineHeight: 1.4 }}>{i + 1}. {q}</div>
+              <YesNo testid={"parq" + i} value={parq[i]} onChange={(v) => up({ parq: parq.map((x, j) => (j === i ? v : x)) })} />
+            </div>
+          ))}
+          <div style={{ marginTop: 16, fontSize: 14, color: T.ink, fontWeight: 600 }}>Anything hurting today?</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }} data-pain>
+            {PAIN_AREAS.map(([a, lbl]) => {
+              const on = (pain || []).includes(a);
+              return <button key={a} data-pain-area={a} onClick={() => togglePain(a)} className="disp" style={{ minHeight: 40, padding: "0 12px", borderRadius: 999, fontWeight: 700, fontSize: 13, textTransform: "uppercase", border: `2px solid ${on ? T.orange : T.line}`, background: on ? T.orange : T.card, color: on ? "#fff" : T.ink }}>{lbl}</button>;
+            })}
+            <button data-pain-area="none" onClick={() => up({ pain: [] })} className="disp" style={{ minHeight: 40, padding: "0 12px", borderRadius: 999, fontWeight: 700, fontSize: 13, textTransform: "uppercase", border: `2px solid ${pain && pain.length === 0 ? T.green : T.line}`, background: pain && pain.length === 0 ? T.green : T.card, color: pain && pain.length === 0 ? "#fff" : T.ink }}>Nothing hurts</button>
+          </div>
+          <div style={{ marginTop: 16, fontSize: 14, color: T.ink, fontWeight: 600 }}>Feeling unwell today, or is it too hot?</div>
+          <YesNo testid="unwell" value={ts.unwell} onChange={(v) => up({ unwell: v })} />
+          <StopRules />
+        </div>
+        <button
+          disabled={!answered}
+          data-test-safety-next
+          onClick={() => {
+            if (ts.unwell) return up({ stage: "unwell" });
+            if (parq.some(Boolean)) return up({ stage: "medical" });
+            up({ stage: isBar ? "warmup" : "equip" });
+          }}
+          className="disp"
+          style={tBtn(answered ? T.yellow : T.line, T.greenDark, { width: "100%", fontSize: 17 })}
+        >
+          {answered ? "Continue" : "Answer every question to continue"}
+        </button>
+      </div>
+    );
+  }
+
+  if (ts.stage === "unwell") {
+    return (
+      <div data-test-stage="unwell">
+        {top("Not today")}
+        <div style={card}>
+          <h2 className="disp" style={h2}>Test another day</h2>
+          <p style={p}>A max-effort test on a day you feel unwell or in the midday heat gives the wrong numbers and adds risk. Pick a cooler time when you feel good — the test will be waiting on the Equipment tab.</p>
+        </div>
+        <button onClick={onCancel} className="disp" style={tBtn(T.green, "#fff", { width: "100%" })}>OK</button>
+      </div>
+    );
+  }
+
+  if (ts.stage === "medical") {
+    return (
+      <div data-test-stage="medical">
+        {top("Safety check")}
+        <div style={card}>
+          <h2 className="disp" style={h2}>Check with a doctor first</h2>
+          <p style={p}>You answered yes to at least one health question. That's what PAR-Q+ is for: talk to a doctor or a qualified exercise professional before doing max-effort tests.</p>
+          <p style={p}>You can still train. We'll skip the max tests and start every pattern at Beginner. When a workout feels too easy, rate it — the app moves you up from there.</p>
+        </div>
+        <button
+          onClick={() => {
+            const sc = scoreTest({ ...ts, medical: true });
+            up({ medical: true, stage: "results", chosen: defaultChosen(sc.levels) });
+          }}
+          data-test-medical-next
+          className="disp"
+          style={tBtn(T.yellow, T.greenDark, { width: "100%" })}
+        >
+          See my starting levels
+        </button>
+        <button onClick={onCancel} className="disp" style={tBtn("transparent", T.steel, { width: "100%", marginTop: 8, border: `2px solid ${T.line}` })}>Cancel</button>
+      </div>
+    );
+  }
+
+  // ---------- equipment ----------
+  if (ts.stage === "equip") {
+    return (
+      <div data-test-stage="equip">
+        {top("Fitness test · setup")}
+        <div style={card}>
+          <div style={{ fontSize: 14.5, color: T.ink, fontWeight: 600 }}>Is there a bar overhead you can hang from?</div>
+          <YesNo testid="bar" value={ts.bar} onChange={(v) => up({ bar: v })} yes="Yes — a bar" no="No bar" />
+          <div style={{ fontSize: 14.5, color: T.ink, fontWeight: 600, marginTop: 14 }}>A bench, ledge or step about knee height?</div>
+          <YesNo testid="bench" value={ts.bench} onChange={(v) => up({ bench: v })} yes="Yes" no="No" />
+        </div>
+        <button
+          disabled={ts.bar == null || ts.bench == null}
+          onClick={() => up({ stage: "warmup", items: testItemOrder("full", ts.bar) })}
+          data-test-equip-next
+          className="disp"
+          style={tBtn(ts.bar == null || ts.bench == null ? T.line : T.yellow, T.greenDark, { width: "100%", fontSize: 17 })}
+        >
+          Continue
+        </button>
+      </div>
+    );
+  }
+
+  // ---------- warm-up ----------
+  if (ts.stage === "warmup") {
+    const w = [
+      ["Easy walk or jog", "2 min"],
+      ["Arm circles", "10 each way"],
+      ["Leg swings", "10 / leg, each direction"],
+      ["Squat-to-stand", "5 reps"],
+      ["Scap push-ups (knees down is fine)", "8 reps"],
+      ...(ts.bar || isBar ? [["Easy bar hang, feet can touch", "15 s"]] : []),
+    ];
+    return (
+      <div data-test-stage="warmup">
+        {top("Warm-up · 2–3 min")}
+        <div style={card}>
+          <p style={{ ...p, color: T.steel, fontSize: 13.5 }}>Warm muscles give truer numbers and fewer tweaks. Easy pace.</p>
+          {w.map(([n, d], i) => <div key={i} style={{ fontSize: 14.5, marginTop: 6 }}>{i + 1}. {n} <span style={{ color: T.green, fontWeight: 700 }}>— {d}</span></div>)}
+        </div>
+        <button onClick={() => nextItem(ts.raw || {}, ts.skipped || {}, -1)} data-test-warmup-done className="disp" style={tBtn(T.yellow, T.greenDark, { width: "100%", fontSize: 17 })}>✓ Warmed up — start the test</button>
+      </div>
+    );
+  }
+
+  // ---------- one test item ----------
+  if (ts.stage === "item" && item) {
+    const r = (ts.raw && ts.raw[id]) || {};
+    const restLeft = ts.restUntil ? Math.max(0, Math.ceil((ts.restUntil - nowT) / 1000)) : 0;
+    const extra = ts.sub === "extra" && item.extra ? item.extra(r.value, ts) : null;
+    return (
+      <div data-test-stage="item" data-test-item={id} data-test-sub={ts.sub}>
+        {top(`${isBar ? "Bar check" : "Fitness test"} · ${ts.idx + 1} of ${items.length}`)}
+        {restLeft > 0 && (
+          <div data-test-rest style={{ display: "flex", alignItems: "center", gap: 10, background: T.yellow, borderRadius: 10, padding: "8px 12px", marginBottom: 12 }}>
+            <span className="disp" style={{ fontWeight: 800, fontSize: 26, color: T.greenDark }}>{Math.floor(restLeft / 60)}:{String(restLeft % 60).padStart(2, "0")}</span>
+            <span style={{ flex: 1, fontSize: 13, color: T.greenDark }}>Rest, read the next check, start when ready.</span>
+            <button onClick={() => up({ restUntil: null })} className="disp" style={{ background: T.greenDark, color: "#fff", border: "none", borderRadius: 8, padding: "8px 12px", fontWeight: 800, fontSize: 13, textTransform: "uppercase" }}>Skip</button>
+          </div>
+        )}
+        <div style={card}>
+          <div className="disp" style={eyebrow}>Sets: {item.seeds}</div>
+          <h2 className="disp" style={h2}>{item.title}</h2>
+          <p style={p}>{item.how}</p>
+          <div style={{ borderLeft: `3px solid ${T.orange}`, paddingLeft: 10, marginTop: 8 }}>
+            <div className="disp" style={{ fontSize: 12.5, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: T.orange }}>Clean rep</div>
+            <div style={{ fontSize: 13.5, lineHeight: 1.5 }}>{item.standard}</div>
+          </div>
+        </div>
+        <div style={{ ...card, borderColor: T.green }}>
+          {ts.sub === "gate" && (
+            <>
+              <div style={{ fontSize: 15, fontWeight: 600 }}>{item.gate.q}</div>
+              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                <button onClick={() => saveRaw({ gate: false }, true)} data-gate="no" className="disp" style={tBtn(T.card, T.ink, { flex: 1, border: `2px solid ${T.line}`, fontSize: 14 })}>{item.gate.no}</button>
+                <button onClick={() => up({ sub: "measure", raw: { ...ts.raw, [id]: { ...r, gate: true } } })} data-gate="yes" className="disp" style={tBtn(T.yellow, T.greenDark, { flex: 1, fontSize: 14 })}>{item.gate.yes}</button>
+              </div>
+            </>
+          )}
+          {ts.sub === "measure" && (
+            <>
+              <div style={{ fontSize: 15, fontWeight: 600 }}>{item.measure.label}</div>
+              {item.measure.kind === "count" ? (
+                <TestCounter key={id} cap={item.measure.cap} unit={item.measure.unit} onSave={(v) => {
+                  const ex = item.extra ? item.extra(v, ts) : null;
+                  if (ex) up({ sub: "extra", raw: { ...ts.raw, [id]: { ...r, value: v } } });
+                  else saveRaw({ value: v }, true);
+                }} />
+              ) : (
+                <TestTimer key={id} cap={item.measure.cap} beep={beep} onStart={unlockAudio} onSave={(v) => {
+                  const ex = item.extra ? item.extra(v, ts) : null;
+                  if (ex) up({ sub: "extra", raw: { ...ts.raw, [id]: { ...r, value: v } } });
+                  else saveRaw({ value: v }, true);
+                }} />
+              )}
+            </>
+          )}
+          {ts.sub === "extra" && extra && (
+            <>
+              <div style={{ fontSize: 15, fontWeight: 600 }}>{extra.q}</div>
+              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                <button onClick={() => saveRaw({ extra: false }, true)} data-extra="no" className="disp" style={tBtn(T.card, T.ink, { flex: 1, border: `2px solid ${T.line}`, fontSize: 14 })}>{extra.no}</button>
+                <button onClick={() => saveRaw({ extra: true }, true)} data-extra="yes" className="disp" style={tBtn(T.yellow, T.greenDark, { flex: 1, fontSize: 14 })}>{extra.yes}</button>
+              </div>
+            </>
+          )}
+        </div>
+        <StopRules compact />
+        <button onClick={() => up({ stage: "stopped" })} data-test-unwell className="disp" style={tBtn("transparent", T.safetyText, { width: "100%", marginTop: 12, border: `2px solid ${T.safetyBg}`, fontSize: 13 })}>I don't feel right — stop the test</button>
+      </div>
+    );
+  }
+
+  if (ts.stage === "stopped") {
+    return (
+      <div data-test-stage="stopped">
+        {top("Test stopped")}
+        <div style={{ ...card, background: T.safetyBg, borderColor: T.safetyBg, color: T.safetyText }}>
+          <h2 className="disp" style={{ ...h2, color: T.safetyText }}>Stop and rest</h2>
+          <p style={{ ...p, color: T.safetyText }}>Sit down somewhere shaded and sip water. <b>If you have chest pain or pressure that doesn't ease quickly, or you feel faint, call 995.</b></p>
+          <p style={{ ...p, color: T.safetyText }}>Nothing from this attempt was saved. Talk to a doctor before trying max-effort tests again.</p>
+        </div>
+        <button onClick={onCancel} className="disp" style={tBtn(T.green, "#fff", { width: "100%" })}>Close</button>
+      </div>
+    );
+  }
+
+  // ---------- results ----------
+  if (ts.stage === "results") {
+    const sc = scoreTest(ts);
+    const chosen = ts.chosen || defaultChosen(sc.levels);
+    const pats = TEST_PATTERNS.filter((pt) => chosen[pt] != null);
+    const flagTxt = { inferred: "inferred", estimated: "estimated", skipped: "skipped", capped: "test cap", medical: "safety" };
+    const build = (apply) => ({
+      date: new Date().toISOString(), mode: ts.mode, medical: !!ts.medical, bar: isBar ? true : !!ts.bar, bench: !!ts.bench,
+      pain: ts.pain || [], raw: ts.raw || {}, skipped: ts.skipped || {}, levels: sc.levels, reasons: sc.reasons, flags: sc.flags,
+      chosen, applied: apply,
+    });
+    return (
+      <div data-test-stage="results">
+        {top(isBar ? "Bar check · results" : "Your starting levels")}
+        <div style={{ fontSize: 13.5, color: T.steel, marginBottom: 10, lineHeight: 1.45 }}>
+          One row per movement pattern. Use − / + if a level looks wrong. After this, your ratings and Harder / Easier keep adjusting it.
+        </div>
+        {pats.map((pt) => {
+          const v = chosen[pt]; const t = sc.levels[pt]; const cur = currentEff ? currentEff[pt] : null;
+          const kept = keepEff && keepEff[pt] != null && v === keepEff[pt] && keepEff[pt] > t;
+          return (
+            <div key={pt} data-result={pt} data-level={v} style={{ ...card, padding: "10px 12px", marginBottom: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ flex: 1 }}>
+                  <div className="disp" style={{ fontSize: 12.5, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: T.steel }}>
+                    {PATTERNS[pt]}{sc.flags[pt] ? ` · ${flagTxt[sc.flags[pt]]}` : ""}
+                  </div>
+                  <div className="disp" style={{ fontSize: 20, fontWeight: 800, textTransform: "uppercase", color: T.green }}>{LEVELS[v - 1]}</div>
+                </div>
+                <button aria-label={`Lower ${PATTERNS[pt]}`} disabled={v <= 1} onClick={() => up({ chosen: { ...chosen, [pt]: v - 1 } })} className="disp" style={tBtn(T.card, v <= 1 ? T.line : T.green, { border: `2px solid ${T.line}`, minWidth: 44, padding: 0, fontSize: 20 })}>−</button>
+                <button aria-label={`Raise ${PATTERNS[pt]}`} disabled={v >= 4} onClick={() => up({ chosen: { ...chosen, [pt]: v + 1 } })} className="disp" style={tBtn(T.card, v >= 4 ? T.line : T.green, { border: `2px solid ${T.line}`, minWidth: 44, padding: 0, fontSize: 20 })}>+</button>
+              </div>
+              <div style={{ fontSize: 13, color: T.ink, marginTop: 4, lineHeight: 1.4 }}>{sc.reasons[pt]}</div>
+              {kept && <div data-kept style={{ fontSize: 12.5, color: T.orange, marginTop: 4 }}>Test says {LEVELS[t - 1]}, but your ratings already moved you up to {LEVELS[cur - 1]} — kept. Tap − to use the test result.</div>}
+              {cur != null && !kept && v !== cur && <div style={{ fontSize: 12.5, color: T.steel, marginTop: 4 }}>Was {LEVELS[cur - 1]}.</div>}
+            </div>
+          );
+        })}
+        <button onClick={() => onComplete(build(true))} data-test-apply className="disp" style={tBtn(T.yellow, T.greenDark, { width: "100%", fontSize: 18, marginTop: 6 })}>✓ Use these levels</button>
+        <button onClick={() => onComplete(build(false))} data-test-saveonly className="disp" style={tBtn("transparent", T.green, { width: "100%", marginTop: 8, border: `2px solid ${T.green}`, fontSize: 13 })}>Save results, keep my current levels</button>
+      </div>
+    );
+  }
+  return null;
+}
+
 function FitnessCornerGenerator() {
   const [step, setStep] = useState(0);
   const [eq, setEq] = useState(["highBar", "parallelBars", "situpBench", "bench"]);
@@ -680,9 +1355,13 @@ function FitnessCornerGenerator() {
   const [finisherInput, setFinisherInput] = useState("");
   const [finisherToday, setFinisherToday] = useState(null); // {type, value} recorded this session
   const [hasLastSetup, setHasLastSetup] = useState(false);
+  // ---- Fitness test (fc-test: {history, offered, barCheckDismissed, snoozeUntil}) ----
+  const [fcTest, setFcTest] = useState(null);
+  const [testRun, setTestRun] = useState(null); // in-progress test state; null = closed
+  const [testFlash, setTestFlash] = useState(null);
 
   useEffect(() => {
-    if (!hasStorage) { setLog([]); return; }
+    if (!hasStorage) { setLog([]); setFcTest({ history: [] }); return; }
     (async () => {
       try { const r = await window.storage.get("fc-corners"); setSavedCorners(JSON.parse(r.value)); } catch { setSavedCorners({}); }
       try { const r = await window.storage.get("fc-log"); setLog(JSON.parse(r.value)); } catch { setLog([]); }
@@ -704,6 +1383,7 @@ function FitnessCornerGenerator() {
       } catch { /* first visit — keep defaults */ }
       // Session safety: a reload (or iOS killing the tab) restores the
       // generated workout and any in-progress clock / ticks / ratings.
+      let sessionRestored = false;
       try {
         const r = await window.storage.get("fc-active"); const a = JSON.parse(r.value);
         if (a.gen && typeof a.gen.seed === "number") setGen({ seed: a.gen.seed, avoid: Array.isArray(a.gen.avoid) ? a.gen.avoid : [], vslot: a.gen.vslot === "push" ? "push" : "pull" });
@@ -711,11 +1391,27 @@ function FitnessCornerGenerator() {
         if (a.adjs) setAdjs(a.adjs);
         if ((a.phase === "running" || a.phase === "rating") && a.startTs) {
           setPhase(a.phase); setStartTs(a.startTs); setNow(Date.now());
-          setDone(a.done || {}); setRatings(a.ratings || {}); setStep(2);
+          setDone(a.done || {}); setRatings(a.ratings || {}); setStep(2); sessionRestored = true;
           if (a.restEnd && a.restEnd > Date.now()) setRestEnd(a.restEnd);
           if (a.finisherToday) setFinisherToday(a.finisherToday);
         }
       } catch { /* nothing in progress */ }
+      // Fitness test: resume one in progress (reload / iOS tab kill); offer it
+      // once on first open (skippable) — never on top of a running workout.
+      let ft = null;
+      try { const r = await window.storage.get("fc-test"); ft = JSON.parse(r.value); } catch { /* never offered */ }
+      setFcTest({ history: [], ...(ft || {}) });
+      let resumed = false;
+      try {
+        const r = await window.storage.get("fc-test-active"); const t = JSON.parse(r.value);
+        if (t && t.stage && Date.now() - (t.savedAt || 0) < 12 * 3600 * 1000) { setTestRun(t); resumed = true; }
+        else await window.storage.delete("fc-test-active");
+      } catch { /* none in progress */ }
+      if (!ft && !resumed && !sessionRestored) {
+        let eqNow = null;
+        try { const r = await window.storage.get("fc-settings"); eqNow = JSON.parse(r.value).eq || null; } catch { /* first visit: ask */ }
+        setTestRun(newTestRun("full", eqNow));
+      }
       setSettingsLoaded(true);
     })();
   }, [hasStorage]);
@@ -797,13 +1493,16 @@ function FitnessCornerGenerator() {
       });
     } catch { /* audio is a nice-to-have */ }
   };
-  const startRest = (secs = restLen) => {
-    // Create/unlock audio inside the tap (iOS only allows sound after a gesture).
+  // Create/unlock audio inside a tap (iOS only allows sound after a gesture).
+  const unlockAudio = () => {
     try {
       const AC = window.AudioContext || window.webkitAudioContext;
       if (AC && !audioRef.current) audioRef.current = new AC();
       if (audioRef.current && audioRef.current.state === "suspended") audioRef.current.resume();
     } catch { /* no audio */ }
+  };
+  const startRest = (secs = restLen) => {
+    unlockAudio();
     setRestFlash(false); setNow(Date.now()); setRestEnd(Date.now() + secs * 1000);
   };
   useEffect(() => {
@@ -867,7 +1566,7 @@ function FitnessCornerGenerator() {
   };
 
   // ---- Backup: export / import every fc-* key as one JSON file ----
-  const BACKUP_SKIP = ["fc-active"]; // transient in-progress state, not worth restoring
+  const BACKUP_SKIP = ["fc-active", "fc-test-active"]; // transient in-progress state, not worth restoring
   const exportData = async () => {
     const data = {};
     try {
@@ -911,7 +1610,7 @@ function FitnessCornerGenerator() {
     const stations = session.map((s, i) => {
       if (s.missing) return null;
       const ex = picks.main[i];
-      return { pattern: s.pattern, name: ex.name, lvl: ex.lvl, doneAt: done[i] ?? null, rating: ratings[i] || null, adj: adjs[i] || 0 };
+      return { pattern: s.pattern, name: ex.name, lvl: ex.lvl, doneAt: done[i] ?? null, rating: ratings[i] || null, adj: adjs[i] || 0, ...(isLever(ex) ? { lever: true } : {}) };
     }).filter(Boolean);
     // Athletic stations are rated, logged and auto-levelled like the others.
     const athStations = athletic.map((s, j) => {
@@ -939,7 +1638,11 @@ function FitnessCornerGenerator() {
     const byPat = {};
     stations.forEach((st) => {
       const b = byPat[st.pattern] || (byPat[st.pattern] = { adj: [], r: [] });
-      b.adj.push(st.adj); if (st.rating) b.r.push(st.rating);
+      // Lever machines are fixed, light resistance: they may LOWER a pattern's
+      // level but never raise it (a "too easy" lever pulldown says nothing
+      // about pull-ups). Their "too easy" and Harder+ steps aren't remembered.
+      b.adj.push(st.lever ? Math.min(0, st.adj) : st.adj);
+      if (st.rating && !(st.lever && st.rating === "easy")) b.r.push(st.rating);
     });
     Object.entries(byPat).forEach(([p, { adj, r }]) => {
       const a = Math.round(adj.reduce((x, y) => x + y, 0) / adj.length);
@@ -963,8 +1666,8 @@ function FitnessCornerGenerator() {
 
   const resetData = async () => {
     if (!window.confirm("Delete ALL saved corners, workout history and auto-levels on this device? This can't be undone — export a backup first if unsure.")) return;
-    setLog([]); setPatternMem({}); streakRef.current = {}; setSavedCorners({}); setHasLastSetup(false); setFinisherLog({ hang: [], jump: [] });
-    if (hasStorage) { for (const k of ["fc-log", "fc-levels", "fc-corners", "fc-settings", "fc-finisher"]) { try { await window.storage.delete(k); } catch {} } }
+    setLog([]); setPatternMem({}); streakRef.current = {}; setSavedCorners({}); setHasLastSetup(false); setFinisherLog({ hang: [], jump: [] }); setFcTest({ history: [], offered: true });
+    if (hasStorage) { for (const k of ["fc-log", "fc-levels", "fc-corners", "fc-settings", "fc-finisher", "fc-test", "fc-test-active"]) { try { await window.storage.delete(k); } catch {} } }
   };
 
   const hitMuscles = useMemo(() => {
@@ -1042,6 +1745,78 @@ function FitnessCornerGenerator() {
   // ---- Warm-up / cool-down content: equipment + focus + level aware ----
   const byLvl = (arr) => arr[Math.min(level, arr.length) - 1];
   const hasBar = eq.includes("highBar") || eq.includes("monkeyBars");
+
+  // ---- Fitness test wiring ----
+  const testHist = (fcTest && fcTest.history) || [];
+  const lastTest = testHist[0] || null;
+  const daysSinceTest = lastTest ? Math.floor((Date.now() - new Date(lastTest.date).getTime()) / DAY_MS) : null;
+  const retestDue = !!lastTest && daysSinceTest >= RETEST_DAYS && !(fcTest.snoozeUntil && Date.now() < fcTest.snoozeUntil);
+  const barCheckPending = !!lastTest && !lastTest.medical && lastTest.bar === false && !lastTest.barCheck;
+  // Not in the first 3 h after a no-bar test (you just said there's no bar —
+  // a default-ticked bar shouldn't nag straight away).
+  const barCheckDue = barCheckPending && hasBar && !fcTest.barCheckDismissed && Date.now() - new Date(lastTest.date).getTime() > 3 * 3600 * 1000;
+  // Compare against current levels only if there's history to protect.
+  const hasHistory = (log && log.length > 0) || Object.values(patternMem).some((v) => v) || testHist.length > 0;
+  const currentEff = hasHistory ? Object.fromEntries(TEST_PATTERNS.map((p) => [p, clampLvl(level + (patternMem[p] || 0))])) : null;
+  // "Raised by auto-level" = above the last applied test level (or the
+  // self-picked global level). Those are kept on retest unless you tap −.
+  const lastApplied = testHist.find((h) => h.applied && h.chosen);
+  const keepEff = currentEff ? Object.fromEntries(TEST_PATTERNS.map((p) => {
+    const base = lastApplied && lastApplied.chosen[p] != null ? lastApplied.chosen[p] : level;
+    return [p, currentEff[p] > base ? currentEff[p] : null];
+  })) : null;
+  const writeTest = async (next) => {
+    setFcTest(next);
+    if (hasStorage) { try { await window.storage.set("fc-test", JSON.stringify(next)); } catch (e) { console.error(e); } }
+  };
+  const closeTest = async () => {
+    setTestRun(null);
+    if (hasStorage) { try { await window.storage.delete("fc-test-active"); } catch {} }
+  };
+  const openTest = (mode) => { setTestFlash(null); setTestRun(newTestRun(mode, eq)); window.scrollTo(0, 0); };
+  const dismissTest = async () => { await writeTest({ ...fcTest, offered: true }); await closeTest(); };
+  const completeTest = async (rec) => {
+    let history;
+    if (rec.mode === "bar" && testHist[0]) {
+      const base = testHist[0];
+      let merged = { ...base, barCheck: rec.date };
+      if (!rec.medical) {
+        merged = { ...merged, bar: true, raw: { ...base.raw, pull: rec.raw.pull, hang: rec.raw.hang }, skipped: { ...base.skipped, pull: !!rec.skipped.pull, hang: !!rec.skipped.hang } };
+        const sc = scoreTest(merged);
+        merged.levels = sc.levels; merged.reasons = sc.reasons; merged.flags = sc.flags;
+        if (rec.applied) merged.chosen = { ...(base.chosen || {}), ...rec.chosen };
+      }
+      history = [merged, ...testHist.slice(1)];
+    } else history = [rec, ...testHist].slice(0, 20);
+    if (rec.applied) {
+      const ch = rec.chosen;
+      const mem = { ...patternMem }; const streak = { ...streakRef.current };
+      let g = level;
+      if (rec.mode !== "bar") {
+        g = medianLevel(ch);
+        // Athletic drills are impact work: start at Intermediate or lower,
+        // but never lower what ratings already raised.
+        ["skill", "power", "elastic"].forEach((k) => {
+          const key = "ath-" + k; const cur = clampLvl(level + (mem[key] || 0));
+          const target = hasHistory ? Math.max(Math.min(g, 2), cur) : Math.min(g, 2);
+          mem[key] = Math.max(-3, Math.min(3, target - g));
+        });
+      }
+      Object.entries(ch).forEach(([p, v]) => { mem[p] = Math.max(-3, Math.min(3, v - g)); streak[p] = 0; });
+      setLevel(g); setPatternMem(mem); streakRef.current = streak; resetTweaks();
+      if (hasStorage) { try { await window.storage.set("fc-levels", JSON.stringify({ mem, streak })); } catch (e) { console.error(e); } }
+    }
+    // The test's dead hang is a real max effort — seed the finisher record.
+    const hv = rec.raw && rec.raw.hang && !(rec.skipped && rec.skipped.hang) ? rec.raw.hang.value : 0;
+    if (!rec.medical && hv > 0) {
+      const next = { ...finisherLog, hang: [{ date: rec.date, value: hv, corner: "Fitness test" }, ...(finisherLog.hang || [])].slice(0, 50) };
+      setFinisherLog(next);
+      if (hasStorage) { try { await window.storage.set("fc-finisher", JSON.stringify(next)); } catch (e) { console.error(e); } }
+    }
+    await writeTest({ ...fcTest, offered: true, history });
+    await closeTest();
+    setTestFlash(rec.applied ? (rec.mode === "bar" ? "Bar check saved — pull and grip levels updated." : "Fitness test saved — your levels are set. Ratings keep fine-tuning them.") : "Fitness test saved. Your levels weren't changed.");
+  };
   const warmupItems = [
     { n: level === 1 ? "Easy walk" : "Easy jog or brisk walk", d: byLvl(["3 min", "3 min", "3–4 min", "4–5 min"]), h: "To the corner or a lap around it — just enough to feel warm.", show: true },
     { n: "Arm circles", d: byLvl(["8 each way", "10 each way", "10 each way", "12 each way"]), h: "Stand tall and make big, slow circles with straight arms — forward first, then backward.", show: needsUpperPrep },
@@ -1125,7 +1900,7 @@ function FitnessCornerGenerator() {
         </div>
         {/* step tabs */}
         <div style={{ maxWidth: 560, margin: "0 auto", display: "flex", padding: "0 20px" }}>
-          {["Equipment", "Session", "Workout", "Library", "Log"].map((s, i) => (
+          {!testRun && ["Equipment", "Session", "Workout", "Library", "Log"].map((s, i) => (
             <button
               key={s}
               onClick={() => setStep(i)}
@@ -1144,7 +1919,7 @@ function FitnessCornerGenerator() {
         </div>
       </header>
 
-      {step === 2 && phase === "running" && (
+      {!testRun && step === 2 && phase === "running" && (
         <div data-restbar style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 50, background: restEnd ? T.yellow : T.greenDark, borderTop: `4px solid ${restEnd ? T.greenDark : T.yellow}`, paddingBottom: "env(safe-area-inset-bottom)" }}>
           <div style={{ maxWidth: 560, margin: "0 auto", padding: "10px 16px", display: "flex", alignItems: "center", gap: 10 }}>
             {restEnd ? (
@@ -1168,8 +1943,29 @@ function FitnessCornerGenerator() {
         </div>
       )}
       <main style={{ maxWidth: 560, margin: "0 auto", padding: step === 2 && phase === "running" ? "20px 20px 110px" : "20px 20px 60px" }}>
+        {testRun && (
+          <FitnessTest
+            key={testRun.startedAt}
+            initial={testRun}
+            hasStorage={hasStorage}
+            isFirst={testHist.length === 0}
+            currentEff={currentEff}
+            keepEff={keepEff}
+            onSkip={dismissTest}
+            onCancel={dismissTest}
+            onComplete={completeTest}
+            beep={beep}
+            unlockAudio={unlockAudio}
+          />
+        )}
+        {!testRun && testFlash && (
+          <div data-test-flash style={{ display: "flex", alignItems: "center", gap: 8, background: "#E7EDE3", border: `2px solid ${T.green}`, borderRadius: 10, padding: "10px 12px", marginBottom: 14, fontSize: 14, color: T.ink }}>
+            <span style={{ flex: 1 }}>✓ {testFlash}</span>
+            <button onClick={() => setTestFlash(null)} aria-label="Dismiss" style={{ background: "transparent", border: "none", color: T.steel, fontSize: 16 }}>✕</button>
+          </div>
+        )}
         {/* ================= STEP 1: EQUIPMENT ================= */}
-        {step === 0 && (
+        {!testRun && step === 0 && (
           <>
             {hasLastSetup && (
               <button
@@ -1182,6 +1978,37 @@ function FitnessCornerGenerator() {
                   {activeCorner ? `📍 ${activeCorner}` : `${eq.length} item${eq.length === 1 ? "" : "s"} ticked`} · {FOCUS[focus].label} · {LEVELS[level - 1]} · {sets} sets · {format === "straight" ? "straight sets" : "circuit"}
                 </div>
               </button>
+            )}
+            {fcTest && testHist.length === 0 && (
+              <button
+                onClick={() => openTest("full")}
+                data-take-test
+                className="disp"
+                style={{ width: "100%", marginBottom: 14, background: T.card, color: T.green, border: `2px solid ${T.green}`, borderRadius: 10, padding: "12px 14px", textAlign: "left", fontWeight: 800, fontSize: 17, textTransform: "uppercase", letterSpacing: "0.05em" }}
+              >
+                📋 Take the fitness test
+                <div style={{ fontFamily: "'Barlow', system-ui, sans-serif", textTransform: "none", letterSpacing: 0, fontWeight: 500, fontSize: 13, marginTop: 2, color: T.steel }}>
+                  About 8 min · sets a starting level for each movement, so the workouts fit you
+                </div>
+              </button>
+            )}
+            {barCheckDue && (
+              <div data-barcheck-banner style={{ background: "#E7EDE3", border: `2px solid ${T.green}`, borderRadius: 10, padding: "10px 12px", marginBottom: 14 }}>
+                <div style={{ fontSize: 14, color: T.ink, lineHeight: 1.45 }}><b>Bar ticked.</b> Your pull level was estimated (no bar at your test). A 3-minute bar check sets it properly.</div>
+                <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                  <button onClick={() => openTest("bar")} data-barcheck-start className="disp" style={{ flex: 2, background: T.yellow, color: T.greenDark, border: "none", borderRadius: 8, padding: "9px 0", fontWeight: 800, fontSize: 14, textTransform: "uppercase" }}>Bar check</button>
+                  <button onClick={() => writeTest({ ...fcTest, barCheckDismissed: true })} className="disp" style={{ flex: 1, background: "transparent", color: T.steel, border: `2px solid ${T.line}`, borderRadius: 8, padding: "9px 0", fontWeight: 700, fontSize: 13, textTransform: "uppercase" }}>Not now</button>
+                </div>
+              </div>
+            )}
+            {retestDue && (
+              <div data-retest-banner style={{ background: "#E7EDE3", border: `2px solid ${T.green}`, borderRadius: 10, padding: "10px 12px", marginBottom: 14 }}>
+                <div style={{ fontSize: 14, color: T.ink, lineHeight: 1.45 }}><b>{Math.floor(daysSinceTest / 7)} weeks since your fitness test.</b> Retest to see how far you've come and refresh your levels.</div>
+                <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                  <button onClick={() => openTest("full")} data-retest-start className="disp" style={{ flex: 2, background: T.yellow, color: T.greenDark, border: "none", borderRadius: 8, padding: "9px 0", fontWeight: 800, fontSize: 14, textTransform: "uppercase" }}>Retest</button>
+                  <button onClick={() => writeTest({ ...fcTest, snoozeUntil: Date.now() + 7 * DAY_MS })} className="disp" style={{ flex: 1, background: "transparent", color: T.steel, border: `2px solid ${T.line}`, borderRadius: 8, padding: "9px 0", fontWeight: 700, fontSize: 13, textTransform: "uppercase" }}>In a week</button>
+                </div>
+              </div>
             )}
             <p style={{ fontSize: 15, color: T.steel, margin: "4px 0 6px" }}>
               Tap what you can see at this corner. Ground exercises are always included.
@@ -1331,10 +2158,15 @@ function FitnessCornerGenerator() {
         )}
 
         {/* ================= STEP 2: SESSION INPUTS ================= */}
-        {step === 1 && (
+        {!testRun && step === 1 && (
           <>
             <Field label="Training level">
               <Segmented options={LEVELS} value={LEVELS[level - 1]} onChange={(v) => { resetTweaks(); setLevel(LEVELS.indexOf(v) + 1); }} />
+              <div style={{ fontSize: 13, color: T.steel, marginTop: 8, lineHeight: 1.45 }}>
+                {lastApplied
+                  ? <>Set by your fitness test on {new Date(lastApplied.date).toLocaleDateString("en-SG", { day: "numeric", month: "short" })}. Each movement also has its own level from the test and your ratings — see the Log tab.</>
+                  : <>Not sure? <button onClick={() => openTest("full")} style={{ background: "transparent", border: "none", padding: 0, color: T.green, fontWeight: 700, textDecoration: "underline", fontSize: 13 }}>Take the 8-minute fitness test</button> and the app sets it for you.</>}
+              </div>
             </Field>
             <Field label="Focus">
               <Segmented
@@ -1394,7 +2226,7 @@ function FitnessCornerGenerator() {
         )}
 
         {/* ================= STEP 3: WORKOUT ================= */}
-        {step === 2 && (
+        {!testRun && step === 2 && (
           <>
             {phase === "idle" && (
               <div style={{ marginBottom: 14 }}>
@@ -1484,6 +2316,7 @@ function FitnessCornerGenerator() {
                   return (
                     <div key={i} style={{ marginTop: 10 }}>
                       <div style={{ fontSize: 13.5, fontWeight: 600, color: T.ink }}>{label}. {ex.name}</div>
+                      {isLever(ex) && <div data-lever-note style={{ fontSize: 12, color: T.steel }}>Machine — "too easy" won't raise this movement's level (light fixed resistance); "too hard" still lowers it.</div>}
                       <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
                         {[["easy", "Too easy"], ["right", "Just right"], ["hard", "Too hard"]].map(([val, lbl]) => (
                           <button
@@ -1825,7 +2658,7 @@ function FitnessCornerGenerator() {
           </>
         )}
         {/* ================= STEP 4: LIBRARY ================= */}
-        {step === 3 && (
+        {!testRun && step === 3 && (
           <>
             <p style={{ fontSize: 15, color: T.steel, margin: "4px 0 4px" }}>
               Every movement in the generator, from easiest to hardest. Greyed-out entries need equipment you haven't ticked on the Equipment tab.
@@ -1879,7 +2712,7 @@ function FitnessCornerGenerator() {
           </>
         )}
         {/* ================= STEP 5: LOG ================= */}
-        {step === 4 && (
+        {!testRun && step === 4 && (
           <>
             {!hasStorage && (
               <div style={{ background: T.safetyBg, color: T.safetyText, fontSize: 13.5, borderRadius: 8, padding: "10px 12px", marginBottom: 14 }}>
@@ -1890,13 +2723,70 @@ function FitnessCornerGenerator() {
               <div style={{ color: T.steel, fontSize: 14 }}>Loading your history…</div>
             ) : (
               <>
+                {fcTest && (
+                  <div data-test-card style={{ background: T.card, border: `2px solid ${T.green}`, borderRadius: 10, padding: "12px 14px", marginBottom: 14 }}>
+                    <div className="disp" style={{ fontWeight: 800, fontSize: 15, textTransform: "uppercase", letterSpacing: "0.08em", color: T.green }}>
+                      Fitness test
+                    </div>
+                    {!lastTest ? (
+                      <div style={{ fontSize: 13, color: T.steel, marginTop: 2, lineHeight: 1.45 }}>Not taken yet. About 8 minutes — sets a starting level for each movement, then your ratings fine-tune it.</div>
+                    ) : (() => {
+                      const prev = testHist[1];
+                      const fmtD = (d) => new Date(d).toLocaleDateString("en-SG", { day: "numeric", month: "short", year: "2-digit" });
+                      const now = testMetrics(lastTest); const before = prev ? testMetrics(prev) : null;
+                      const due = new Date(new Date(lastTest.date).getTime() + RETEST_DAYS * DAY_MS);
+                      const lv = (rec, p) => { const v = rec && (rec.chosen && rec.chosen[p] != null ? rec.chosen[p] : rec.levels && rec.levels[p]); return v ? LEVELS[v - 1] : "—"; };
+                      return (
+                        <>
+                          <div style={{ fontSize: 13, color: T.steel, marginTop: 2 }}>
+                            Last test {fmtD(lastTest.date)} ({daysSinceTest === 0 ? "today" : `${daysSinceTest} day${daysSinceTest === 1 ? "" : "s"} ago`}) · {retestDue ? <b style={{ color: T.orange }}>retest due now</b> : <>next retest {fmtD(due)}</>}
+                          </div>
+                          <table data-test-table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, marginTop: 8 }}>
+                            <thead>
+                              <tr style={{ color: T.steel, textAlign: "left" }}>
+                                <th style={{ fontWeight: 600, padding: "3px 0" }}></th>
+                                {before && <th style={{ fontWeight: 600 }}>Before · {fmtD(prev.date)}</th>}
+                                <th style={{ fontWeight: 600 }}>{before ? "Now" : "Result"} · {fmtD(lastTest.date)}</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {now.map(([k, v], j) => (
+                                <tr key={k} style={{ borderTop: `1px solid ${T.line}` }}>
+                                  <td style={{ padding: "4px 0", color: T.ink }}>{k}</td>
+                                  {before && <td style={{ color: T.steel }}>{(before.find((b) => b[0] === k) || before[j] || [])[1] || "—"}</td>}
+                                  <td style={{ fontWeight: 700, color: T.green }}>{v}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                          <div style={{ fontSize: 12.5, color: T.steel, marginTop: 8, lineHeight: 1.6 }}>
+                            {TEST_PATTERNS.map((p) => (
+                              <div key={p}>{PATTERNS[p]}: {before && <>{lv(prev, p)} → </>}<b style={{ color: T.ink }}>{lv(lastTest, p)}</b>{lastTest.flags && lastTest.flags[p] === "estimated" ? " (estimated)" : ""}</div>
+                            ))}
+                            {!lastTest.applied && <div style={{ marginTop: 4 }}>Results saved without changing your levels.</div>}
+                          </div>
+                        </>
+                      );
+                    })()}
+                    <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                      <button onClick={() => openTest("full")} data-log-retest className="disp" style={{ flex: 2, background: T.green, color: "#fff", border: "none", borderRadius: 8, padding: "10px 0", fontWeight: 800, fontSize: 14, textTransform: "uppercase" }}>
+                        {lastTest ? "↻ Retest" : "📋 Take the test"}
+                      </button>
+                      {barCheckPending && (
+                        <button onClick={() => openTest("bar")} data-log-barcheck className="disp" style={{ flex: 1, background: "transparent", color: T.green, border: `2px solid ${T.green}`, borderRadius: 8, padding: "8px 0", fontWeight: 800, fontSize: 13, textTransform: "uppercase" }}>
+                          Bar check
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
                 {Object.keys(patternMem).some((k) => patternMem[k] !== 0) && (
                   <div style={{ background: T.card, border: `2px solid ${T.green}`, borderRadius: 10, padding: "12px 14px", marginBottom: 14 }}>
                     <div className="disp" style={{ fontWeight: 800, fontSize: 15, textTransform: "uppercase", letterSpacing: "0.08em", color: T.green }}>
                       Auto-level memory
                     </div>
                     <div style={{ fontSize: 12.5, color: T.steel, marginTop: 2 }}>
-                      Learned from your ratings and Harder/Easier taps — applied automatically to new workouts.
+                      Per-movement adjustments on top of your overall level — set by your fitness test, then your ratings and Harder/Easier taps. Applied automatically to new workouts.
                     </div>
                     {Object.entries(patternMem).filter(([, v]) => v !== 0).map(([p, v]) => (
                       <div key={p} style={{ fontSize: 13.5, color: T.ink, marginTop: 5 }}>
