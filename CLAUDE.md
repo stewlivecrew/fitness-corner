@@ -206,6 +206,15 @@ Exercise entry schema (compiled `EXERCISES` array, generated — read-only):
   circuit → per-ROUND buttons (sequential unlock), no per-station Done.
   Warm-up and cool-down always have their own ✓. Timestamps display as
   "✓ at m:ss" (session-clock time, not duration).
+- **Rest countdown** (fixed bar at the bottom while running): tap
+  "⏱ Rest" after a set/round; length = straight 90s (120s at L3+),
+  circuit 75s; circuit round ticks auto-start it (except the last).
+  +15s / Skip; beep (WebAudio, unlocked on the tap) + vibrate where
+  supported; `restEnd` persists in `fc-active`. This is a rest *cue*,
+  the stopwatch remains the measurement.
+- **Finisher record:** dead hang seconds (bar ticked) or best broad jump
+  cm; `fc-finisher` ({hang:[], jump:[]}, newest first, cap 50) shows
+  "Last time · Best" and flags a new best; also saved on the log entry.
 - Post-session ratings per station: easy | right | hard.
 - **Auto-level memory:** "too easy" ×2 consecutive sessions → pattern +1
   (cap +3); "too hard" ×1 → −1 immediately (floor −3). Asymmetric on
@@ -220,7 +229,8 @@ Exercise entry schema (compiled `EXERCISES` array, generated — read-only):
   render, coverage, ratings and the log all read `picks`. Equipment /
   focus / level changes call `resetTweaks()` to drop stale swaps/steps.
 - Storage keys: `fc-corners` (name → equipment[]), `fc-log` (sessions,
-  newest first, cap 100), `fc-levels` ({mem, streak}), `fc-settings`
+  newest first, cap 100), `fc-levels` ({mem, streak}), `fc-finisher`
+  (finisher history), `fc-settings`
   (last eq/level/focus/sets/format/toggles/activeCorner — restored on
   load; powers "▶ Go — same as last time" and per-corner ▶ Go).
   `fc-active` ({phase, startTs, done, ratings, gen, swaps, adjs} —
@@ -329,8 +339,9 @@ data carries over.
    log ("hamstrings dashed 3 sessions running").
 7. **Time-budget generation** — "I have 20 min" sized by the user's own
    logged splits, never generic estimates.
-8. Reps logging, contact-count tracking for plyo volume, rest-cue timer
-   derived from logged pacing — all post-beta.
+8. Reps logging, contact-count tracking for plyo volume, rest-cue length
+   derived from logged pacing — all post-beta (a fixed-length rest
+   countdown shipped already).
 
 ### Decision log
 

@@ -673,6 +673,12 @@ function FitnessCornerGenerator() {
   const [cornerName, setCornerName] = useState("");
   const [activeCorner, setActiveCorner] = useState("");
   const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [restEnd, setRestEnd] = useState(null); // timestamp when the current rest ends
+  const [restFlash, setRestFlash] = useState(false); // "rest over" banner
+  const audioRef = useRef(null);
+  const [finisherLog, setFinisherLog] = useState({ hang: [], jump: [] });
+  const [finisherInput, setFinisherInput] = useState("");
+  const [finisherToday, setFinisherToday] = useState(null); // {type, value} recorded this session
   const [hasLastSetup, setHasLastSetup] = useState(false);
 
   useEffect(() => {
@@ -681,6 +687,7 @@ function FitnessCornerGenerator() {
       try { const r = await window.storage.get("fc-corners"); setSavedCorners(JSON.parse(r.value)); } catch { setSavedCorners({}); }
       try { const r = await window.storage.get("fc-log"); setLog(JSON.parse(r.value)); } catch { setLog([]); }
       try { const r = await window.storage.get("fc-levels"); const v = JSON.parse(r.value); setPatternMem(v.mem || {}); streakRef.current = v.streak || {}; } catch { setPatternMem({}); streakRef.current = {}; }
+      try { const r = await window.storage.get("fc-finisher"); const v = JSON.parse(r.value); setFinisherLog({ hang: v.hang || [], jump: v.jump || [] }); } catch { /* none yet */ }
       // Two-tap start: restore the last corner + session settings.
       try {
         const r = await window.storage.get("fc-settings"); const v = JSON.parse(r.value);
@@ -705,6 +712,8 @@ function FitnessCornerGenerator() {
         if ((a.phase === "running" || a.phase === "rating") && a.startTs) {
           setPhase(a.phase); setStartTs(a.startTs); setNow(Date.now());
           setDone(a.done || {}); setRatings(a.ratings || {}); setStep(2);
+          if (a.restEnd && a.restEnd > Date.now()) setRestEnd(a.restEnd);
+          if (a.finisherToday) setFinisherToday(a.finisherToday);
         }
       } catch { /* nothing in progress */ }
       setSettingsLoaded(true);
@@ -719,9 +728,9 @@ function FitnessCornerGenerator() {
 
   useEffect(() => {
     if (!hasStorage || !settingsLoaded) return;
-    const a = { phase, startTs, done, ratings, gen, swaps, adjs };
+    const a = { phase, startTs, done, ratings, gen, swaps, adjs, restEnd, finisherToday };
     window.storage.set("fc-active", JSON.stringify(a)).catch((e) => console.warn(e));
-  }, [hasStorage, settingsLoaded, phase, startTs, done, ratings, gen, swaps, adjs]);
+  }, [hasStorage, settingsLoaded, phase, startTs, done, ratings, gen, swaps, adjs, restEnd, finisherToday]);
 
   useEffect(() => {
     if (phase !== "running") return;
@@ -772,10 +781,55 @@ function FitnessCornerGenerator() {
   const elapsedSec = phase === "running" && startTs ? Math.floor((now - startTs) / 1000) : 0;
   const fmtT = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
-  const startSession = () => { setPhase("running"); setStartTs(Date.now()); setNow(Date.now()); setDone({}); setRatings({}); };
+  const startSession = () => { setPhase("running"); setStartTs(Date.now()); setNow(Date.now()); setDone({}); setRatings({}); setRestEnd(null); setFinisherToday(null); };
+
+  // ---- Rest countdown: tap after a set/round; length follows the format ----
+  const restLen = format === "straight" ? (level >= 3 ? 120 : 90) : 75;
+  const restLeft = restEnd ? Math.max(0, Math.ceil((restEnd - now) / 1000)) : 0;
+  const beep = () => {
+    try {
+      const ctx = audioRef.current; if (!ctx) return;
+      [0, 0.3].forEach((t) => {
+        const o = ctx.createOscillator(); const g = ctx.createGain();
+        o.frequency.value = 880; o.connect(g); g.connect(ctx.destination);
+        g.gain.setValueAtTime(0.25, ctx.currentTime + t); g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.2);
+        o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + 0.22);
+      });
+    } catch { /* audio is a nice-to-have */ }
+  };
+  const startRest = (secs = restLen) => {
+    // Create/unlock audio inside the tap (iOS only allows sound after a gesture).
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC && !audioRef.current) audioRef.current = new AC();
+      if (audioRef.current && audioRef.current.state === "suspended") audioRef.current.resume();
+    } catch { /* no audio */ }
+    setRestFlash(false); setNow(Date.now()); setRestEnd(Date.now() + secs * 1000);
+  };
+  useEffect(() => {
+    if (!restEnd || now < restEnd) return;
+    setRestEnd(null); setRestFlash(true); beep();
+    try { if (navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch { /* not supported (iOS) */ }
+  }, [now, restEnd]);
+  useEffect(() => {
+    if (!restFlash) return;
+    const id = setTimeout(() => setRestFlash(false), 4000);
+    return () => clearTimeout(id);
+  }, [restFlash]);
+
+  // ---- Finisher record (dead hang seconds / broad jump cm) ----
+  const finType = eq.includes("highBar") || eq.includes("monkeyBars") ? "hang" : "jump";
+  const saveFinisher = async () => {
+    const v = Math.round(Number(finisherInput));
+    if (!v || v <= 0 || v > (finType === "hang" ? 900 : 400)) return;
+    const rec = { date: new Date().toISOString(), value: v, corner: activeCorner || "" };
+    const next = { ...finisherLog, [finType]: [rec, ...(finisherLog[finType] || [])].slice(0, 50) };
+    setFinisherLog(next); setFinisherToday({ type: finType, value: v }); setFinisherInput("");
+    if (hasStorage) { try { await window.storage.set("fc-finisher", JSON.stringify(next)); } catch (e) { console.error(e); } }
+  };
   const markDone = (key) => setDone((d) => (d[key] != null ? d : { ...d, [key]: Math.floor((Date.now() - startTs) / 1000) }));
   const finishSession = () => setPhase("rating");
-  const discardSession = () => { setPhase("idle"); setDone({}); setRatings({}); };
+  const discardSession = () => { setPhase("idle"); setDone({}); setRatings({}); setRestEnd(null); };
 
   const writeCorners = async (next) => {
     setSavedCorners(next);
@@ -871,6 +925,7 @@ function FitnessCornerGenerator() {
       durationSec: startTs ? Math.floor((Date.now() - startTs) / 1000) : 0, stations, format,
       warmupAt: done["warmup"] ?? null, cooldownAt: done["cooldown"] ?? null,
       rounds: format === "circuit" ? Array.from({ length: sets }).map((_, r) => done["r" + r] ?? null) : null,
+      finisher: finisherToday,
     };
     const nextLog = [entry, ...(log || [])].slice(0, 100);
     setLog(nextLog);
@@ -903,13 +958,13 @@ function FitnessCornerGenerator() {
       try { await window.storage.set("fc-log", JSON.stringify(nextLog)); } catch (e) { console.error(e); }
       try { await window.storage.set("fc-levels", JSON.stringify({ mem, streak })); } catch (e) { console.error(e); }
     }
-    setPhase("idle"); setDone({}); setRatings({}); setAdjs({}); setSwaps({});
+    setPhase("idle"); setDone({}); setRatings({}); setAdjs({}); setSwaps({}); setRestEnd(null); setFinisherToday(null);
   };
 
   const resetData = async () => {
     if (!window.confirm("Delete ALL saved corners, workout history and auto-levels on this device? This can't be undone — export a backup first if unsure.")) return;
-    setLog([]); setPatternMem({}); streakRef.current = {}; setSavedCorners({}); setHasLastSetup(false);
-    if (hasStorage) { for (const k of ["fc-log", "fc-levels", "fc-corners", "fc-settings"]) { try { await window.storage.delete(k); } catch {} } }
+    setLog([]); setPatternMem({}); streakRef.current = {}; setSavedCorners({}); setHasLastSetup(false); setFinisherLog({ hang: [], jump: [] });
+    if (hasStorage) { for (const k of ["fc-log", "fc-levels", "fc-corners", "fc-settings", "fc-finisher"]) { try { await window.storage.delete(k); } catch {} } }
   };
 
   const hitMuscles = useMemo(() => {
@@ -1089,7 +1144,30 @@ function FitnessCornerGenerator() {
         </div>
       </header>
 
-      <main style={{ maxWidth: 560, margin: "0 auto", padding: "20px 20px 60px" }}>
+      {step === 2 && phase === "running" && (
+        <div data-restbar style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 50, background: restEnd ? T.yellow : T.greenDark, borderTop: `4px solid ${restEnd ? T.greenDark : T.yellow}`, paddingBottom: "env(safe-area-inset-bottom)" }}>
+          <div style={{ maxWidth: 560, margin: "0 auto", padding: "10px 16px", display: "flex", alignItems: "center", gap: 10 }}>
+            {restEnd ? (
+              <>
+                <span className="disp" style={{ fontWeight: 800, fontSize: 30, color: T.greenDark, minWidth: 80 }}>{fmtT(restLeft)}</span>
+                <span className="disp" style={{ flex: 1, fontWeight: 700, fontSize: 14, color: T.greenDark, textTransform: "uppercase", letterSpacing: "0.06em" }}>Rest</span>
+                <button onClick={() => setRestEnd((e) => e + 15000)} className="disp" style={{ minHeight: 44, background: "transparent", border: `2px solid ${T.greenDark}`, color: T.greenDark, borderRadius: 8, padding: "0 12px", fontWeight: 800, fontSize: 14 }}>+15s</button>
+                <button onClick={() => setRestEnd(null)} className="disp" style={{ minHeight: 44, background: T.greenDark, border: "none", color: "#fff", borderRadius: 8, padding: "0 14px", fontWeight: 800, fontSize: 14, textTransform: "uppercase" }}>Skip</button>
+              </>
+            ) : (
+              <>
+                <span className="disp" style={{ flex: 1, color: restFlash ? T.yellow : "rgba(255,255,255,0.8)", fontWeight: 800, fontSize: restFlash ? 18 : 14, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  {restFlash ? "Rest over — go! 💪" : format === "straight" ? "Finished a set?" : "Finished a round?"}
+                </span>
+                <button onClick={() => startRest()} className="disp" style={{ minHeight: 48, background: T.yellow, color: T.greenDark, border: "none", borderRadius: 10, padding: "0 18px", fontWeight: 800, fontSize: 16, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  ⏱ Rest {fmtT(restLen)}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+      <main style={{ maxWidth: 560, margin: "0 auto", padding: step === 2 && phase === "running" ? "20px 20px 110px" : "20px 20px 60px" }}>
         {/* ================= STEP 1: EQUIPMENT ================= */}
         {step === 0 && (
           <>
@@ -1373,7 +1451,7 @@ function FitnessCornerGenerator() {
                           <button
                             key={key}
                             disabled={!prevDone}
-                            onClick={() => markDone(key)}
+                            onClick={() => { markDone(key); if (r < sets - 1) startRest(); }}
                             className="disp"
                             style={{
                               flex: 1, padding: "9px 0", borderRadius: 8, fontWeight: 800, fontSize: 13, textTransform: "uppercase",
@@ -1577,10 +1655,49 @@ function FitnessCornerGenerator() {
                 Finisher · optional
               </div>
               <div style={{ fontSize: 14, color: T.steel, marginTop: 2 }}>
-                {eq.includes("highBar")
+                {finType === "hang"
                   ? "Max-time dead hang. One attempt. Beat last session's number."
-                  : "5 max-effort broad jumps, full reset between each."}
+                  : "5 max-effort broad jumps, full reset between each. Record your best."}
               </div>
+              {(() => {
+                const all = finisherLog[finType] || [];
+                const recordedToday = finisherToday && finisherToday.type === finType;
+                const hist = recordedToday ? all.slice(1) : all; // history before today
+                const unit = finType === "hang" ? "s" : " cm";
+                const last = hist[0]; const best = hist.reduce((m, x) => Math.max(m, x.value), 0);
+                const fmtD = (d) => new Date(d).toLocaleDateString("en-SG", { day: "numeric", month: "short" });
+                return (
+                  <>
+                    <div data-finisher-last style={{ fontSize: 13, color: T.ink, marginTop: 6 }}>
+                      {last ? <>Last time: <b>{last.value}{unit}</b> ({fmtD(last.date)}) · Best: <b>{best}{unit}</b></> : "No result yet — set your first benchmark."}
+                    </div>
+                    {recordedToday ? (
+                      <div className="disp done-check-pop" style={{ color: T.green, fontWeight: 800, fontSize: 14, marginTop: 6 }}>
+                        ✓ Today: {finisherToday.value}{unit}{hist.length > 0 && finisherToday.value > best ? " — new best! 🎉" : ""}
+                      </div>
+                    ) : (
+                      <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                        <input
+                          type="number" inputMode="numeric" min="1" data-finisher-input
+                          value={finisherInput}
+                          onChange={(e) => setFinisherInput(e.target.value)}
+                          placeholder={finType === "hang" ? "Seconds held" : "Best jump (cm)"}
+                          style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: `2px solid ${T.line}`, fontSize: 16, fontFamily: "inherit", background: T.card }}
+                        />
+                        <button
+                          onClick={saveFinisher}
+                          disabled={!(Number(finisherInput) > 0)}
+                          className="disp"
+                          style={{ background: Number(finisherInput) > 0 ? T.green : T.line, color: "#fff", border: "none", borderRadius: 8, padding: "0 16px", fontWeight: 800, fontSize: 13, textTransform: "uppercase" }}
+                        >
+                          Record
+                        </button>
+                      </div>
+                    )}
+                    {finType === "jump" && <div style={{ fontSize: 12, color: T.steel, marginTop: 4 }}>Measure toe line to back of your heels — or count foot-lengths (≈ 27 cm each).</div>}
+                  </>
+                );
+              })()}
             </div>
 
             <div style={{ background: T.card, border: `2px solid ${T.line}`, borderRadius: 10, padding: "12px 14px", marginTop: 12 }}>
@@ -1814,6 +1931,7 @@ function FitnessCornerGenerator() {
                           {st.rating && <> · {st.rating === "easy" ? "😴 too easy" : st.rating === "hard" ? "🥵 too hard" : "✅ just right"}</>}
                         </div>
                       ))}
+                      {en.finisher && <div>Finisher · {en.finisher.type === "hang" ? `dead hang ${en.finisher.value}s` : `broad jump ${en.finisher.value} cm`}</div>}
                       {en.cooldownAt != null && <div>Cool-down · finished at {Math.floor(en.cooldownAt / 60)}:{String(en.cooldownAt % 60).padStart(2, "0")}</div>}
                     </div>
                   </div>
