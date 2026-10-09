@@ -501,7 +501,6 @@ const fmtDay = (iso) => new Date(iso).toLocaleDateString("en-SG", { day: "numeri
 /* tune after real use; see CLAUDE.md > My corners).                   */
 /* ------------------------------------------------------------------ */
 const BADGE_CONFIG = {
-  minCompletion: 0.6,   // share of stations (straight) / rounds (circuit) ticked done for a workout to count
   gpsRadiusM: 150,      // optional: counts if location is ALREADY allowed and you're this close (never prompts)
   // One tier per corner, upgrading in place, shown as the colour of the
   // corner's accent stripe + name (no badge icons). Base: Verified (map
@@ -521,19 +520,16 @@ const BADGE_CONFIG = {
     { min: 25, label: "Island-wide" },
   ],
 };
-// Share of the workout ticked done (main stations; circuit = rounds).
-function entryCompletion(en) {
-  if (!en) return 0;
-  if (Array.isArray(en.rounds) && en.rounds.length) return en.rounds.filter((x) => x != null).length / en.rounds.length;
-  const st = (en.stations || []).filter((s) => !s.athletic);
-  return st.length ? st.filter((s) => s.doneAt != null).length / st.length : 0;
-}
-// Backfill from the log, once, when fc-visits doesn't exist yet: an entry
-// counts if its corner is a saved corner and enough of it was ticked done.
-function backfillVisits(log, corners, placeByName) {
-  return (log || []).filter((en) => en && en.corner && corners[en.corner] && entryCompletion(en) >= BADGE_CONFIG.minCompletion)
-    .map((en) => ({ at: en.date, corner: en.corner, placeId: (placeByName[en.corner] && placeByName[en.corner].id) || null, completion: Math.round(entryCompletion(en) * 100) / 100, via: "backfill", course: null }))
-    .sort((a, b) => (a.at < b.at ? 1 : -1));
+// Counting rule v2 (owner, 2026-10-09): a workout counts when it's saved at a
+// corner picked via nearest / My corners / Go (or GPS) — no tick threshold.
+const VISITS_RULE = 2;
+// Rebuild counted visits: every saved log entry at a saved corner counts.
+// Older counted visits no longer in the (100-entry) log are kept.
+function backfillVisits(log, corners, placeByName, keep = []) {
+  const fromLog = (log || []).filter((en) => en && en.corner && corners[en.corner])
+    .map((en) => ({ at: en.date, corner: en.corner, placeId: (placeByName[en.corner] && placeByName[en.corner].id) || null, via: en.via || "backfill", course: null }));
+  const seen = new Set(fromLog.map((v) => v.at));
+  return [...fromLog, ...(keep || []).filter((v) => v && v.at && !seen.has(v.at))].sort((a, b) => (a.at < b.at ? 1 : -1));
 }
 function tierFor(count, tiers) {
   let idx = -1;
@@ -1963,7 +1959,7 @@ function FitnessCornerGenerator() {
   const [placeName, setPlaceName] = useState("");
   const [cornerFlash, setCornerFlash] = useState(null);
   // ---- My corners: counted visits (fc-visits), corner tiers, profile ----
-  const [visits, setVisits] = useState(null); // null = loading, "backfill" = build from the log once
+  const [visits, setVisits] = useState(null); // null = loading, { rebuild: old[] } = rebuild from the log once
   const [cornerVia, setCornerVia] = useState(""); // how activeCorner was chosen: pick (nearest / My corners / Go) | select (save-screen dropdown)
   const [celebration, setCelebration] = useState(null);
   // ---- Corner-first home ----
@@ -1978,7 +1974,11 @@ function FitnessCornerGenerator() {
     (async () => {
       try { const r = await window.storage.get("fc-corners"); setSavedCorners(JSON.parse(r.value)); } catch { setSavedCorners({}); }
       try { const r = await window.storage.get("fc-places"); const v = JSON.parse(r.value); setPlaces(v && typeof v === "object" ? v : {}); } catch { setPlaces({}); }
-      try { const r = await window.storage.get("fc-visits"); const v = JSON.parse(r.value); setVisits(Array.isArray(v) ? v : "backfill"); } catch { setVisits("backfill"); }
+      try {
+        const r = await window.storage.get("fc-visits"); const v = JSON.parse(r.value);
+        let rule = 0; try { rule = JSON.parse((await window.storage.get("fc-visits-rule")).value); } catch { /* pre-v2 */ }
+        setVisits(Array.isArray(v) && rule === VISITS_RULE ? v : { rebuild: Array.isArray(v) ? v : [] });
+      } catch { setVisits({ rebuild: [] }); }
       try { const r = await window.storage.get("fc-log"); setLog(JSON.parse(r.value)); } catch { setLog([]); }
       try { const r = await window.storage.get("fc-levels"); const v = JSON.parse(r.value); setPatternMem(v.mem || {}); streakRef.current = v.streak || {}; } catch { setPatternMem({}); streakRef.current = {}; }
       try { const r = await window.storage.get("fc-finisher"); const v = JSON.parse(r.value); setFinisherLog({ hang: v.hang || [], jump: v.jump || [] }); } catch { /* none yet */ }
@@ -2179,12 +2179,15 @@ function FitnessCornerGenerator() {
     Object.values(places).forEach((pl) => { if (pl && pl.corner && savedCorners[pl.corner]) m[pl.corner] = pl; });
     return m;
   }, [places, savedCorners]);
-  // One-time backfill of counted visits from the existing log.
+  // One-time (re)build of counted visits from the log under the current rule.
   useEffect(() => {
-    if (!settingsLoaded || visits !== "backfill" || !Array.isArray(log)) return;
-    const v = backfillVisits(log, savedCorners, placeByCorner);
+    if (!settingsLoaded || !visits || Array.isArray(visits) || !visits.rebuild || !Array.isArray(log)) return;
+    const v = backfillVisits(log, savedCorners, placeByCorner, visits.rebuild);
     setVisits(v);
-    if (hasStorage) window.storage.set("fc-visits", JSON.stringify(v)).catch((e) => console.warn(e));
+    if (hasStorage) {
+      window.storage.set("fc-visits", JSON.stringify(v)).catch((e) => console.warn(e));
+      window.storage.set("fc-visits-rule", JSON.stringify(VISITS_RULE)).catch((e) => console.warn(e));
+    }
   }, [hasStorage, settingsLoaded, visits, log, savedCorners, placeByCorner]);
   const stats = useMemo(() => cornerStats(visitList, savedCorners, placeByCorner), [visitList, savedCorners, placeByCorner]);
   // Home hero: nearest saved map corner (≤ 1.5 km) if location is ALREADY
@@ -2381,6 +2384,7 @@ function FitnessCornerGenerator() {
       for (const k of keys) await window.storage.set(k, JSON.stringify(parsed.data[k]));
       if (!("fc-places" in parsed.data)) { try { await window.storage.delete("fc-places"); } catch { /* none */ } }
       if (!("fc-visits" in parsed.data)) { try { await window.storage.delete("fc-visits"); } catch { /* rebuilt from the imported log */ } }
+      if (!("fc-visits-rule" in parsed.data)) { try { await window.storage.delete("fc-visits-rule"); } catch { /* old backup: recount under the current rule */ } }
       window.location.reload();
     } catch (e) {
       window.alert("Couldn't import that file: " + e.message);
@@ -2412,21 +2416,21 @@ function FitnessCornerGenerator() {
       rounds: format === "circuit" ? Array.from({ length: sets }).map((_, r) => done["r" + r] ?? null) : null,
       finisher: finisherToday,
     };
-    const completion = Math.round(entryCompletion(entry) * 100) / 100;
-    const counted = !!via && completion >= BADGE_CONFIG.minCompletion;
-    Object.assign(entry, { completion, counted, via, course: null });
+    const counted = !!via;
+    Object.assign(entry, { counted, via, course: null });
     const nextLog = [entry, ...(log || [])].slice(0, 100);
     setLog(nextLog);
     if (counted) {
       // fc-visits is uncapped (the log keeps 100) so tiers never go backwards.
-      const nextVisits = [{ at: entry.date, corner: activeCorner, placeId: (placeByCorner[activeCorner] && placeByCorner[activeCorner].id) || null, completion, via, course: null }, ...visitList];
+      const nextVisits = [{ at: entry.date, corner: activeCorner, placeId: (placeByCorner[activeCorner] && placeByCorner[activeCorner].id) || null, via, course: null }, ...visitList];
       const before = cornerStats(visitList, savedCorners, placeByCorner); const after = cornerStats(nextVisits, savedCorners, placeByCorner);
       const tb = before.tier(activeCorner), ta = after.tier(activeCorner);
       const up = ta.idx > tb.idx; const exUp = after.explorer.idx > before.explorer.idx;
       setCelebration({ corner: activeCorner, tier: ta, up, explorer: exUp ? after.explorer.tier.label : null, unique: after.unique });
       await writeVisits(nextVisits);
+      if (hasStorage) { try { await window.storage.set("fc-visits-rule", JSON.stringify(VISITS_RULE)); } catch { /* best effort */ } }
     } else {
-      setCelebration({ corner: activeCorner, notCounted: !cornerOk ? "corner" : !via ? "link" : "completion", completion });
+      setCelebration({ corner: activeCorner, notCounted: !cornerOk ? "corner" : "link" });
     }
     // Auto-level memory, applied ONCE per pattern per session (Core & grip has
     // two stations per pattern — they must not double-count):
@@ -2467,7 +2471,7 @@ function FitnessCornerGenerator() {
   const resetData = async () => {
     if (!window.confirm("Delete ALL saved corners, workout history and auto-levels on this device? This can't be undone — export a backup first if unsure.")) return;
     setLog([]); setPatternMem({}); streakRef.current = {}; setSavedCorners({}); setHasLastSetup(false); setFinisherLog({ hang: [], jump: [] }); setFcTest({ history: [], offered: true }); setPlaces({}); setPendingPlace(null); setVisits([]); setCelebration(null);
-    if (hasStorage) { for (const k of ["fc-log", "fc-levels", "fc-corners", "fc-places", "fc-visits", "fc-settings", "fc-finisher", "fc-test", "fc-test-active"]) { try { await window.storage.delete(k); } catch {} } }
+    if (hasStorage) { for (const k of ["fc-log", "fc-levels", "fc-corners", "fc-places", "fc-visits", "fc-visits-rule", "fc-settings", "fc-finisher", "fc-test", "fc-test-active"]) { try { await window.storage.delete(k); } catch {} } }
   };
 
   const hitMuscles = useMemo(() => {
@@ -3368,16 +3372,11 @@ function FitnessCornerGenerator() {
                   </select>
                 </div>
                 {(() => {
-                  const live = format === "circuit"
-                    ? Array.from({ length: sets }).filter((_, r) => done["r" + r] != null).length / Math.max(1, sets)
-                    : (() => { const idx = session.map((s, i) => (s.missing ? null : i)).filter((x) => x != null); return idx.length ? idx.filter((i) => done[i] != null).length / idx.length : 0; })();
                   const ok = activeCorner && savedCorners[activeCorner];
-                  const pct = Math.round(BADGE_CONFIG.minCompletion * 100);
-                  const msg = !ok ? "Not linked to a saved corner, so it won't count toward a corner. Start from Find nearest corner, My corners or Go next time."
+                  const msg = !ok ? "Not linked to a saved corner, so it won't count toward one. Start from Find nearest corner, My corners or Go next time."
                     : cornerVia !== "pick" ? `Picked here, so it only counts toward ${activeCorner} if location is already on and you're there.`
-                    : live < BADGE_CONFIG.minCompletion ? `${Math.round(live * 100)}% ticked done — workouts count from ${pct}%. Saved to your log either way.`
-                    : `Counts toward ${activeCorner} (workout ${((stats.per[activeCorner] && stats.per[activeCorner].count) || 0) + 1} there).`;
-                  return <div data-count-preview={ok && cornerVia === "pick" && live >= BADGE_CONFIG.minCompletion ? "yes" : "no"} style={{ fontSize: 12.5, color: T.steel, marginTop: 8, lineHeight: 1.4 }}>{msg}</div>;
+                    : `Counts toward ${activeCorner}.`;
+                  return <div data-count-preview={ok && cornerVia === "pick" ? "yes" : "no"} style={{ fontSize: 12.5, color: T.steel, marginTop: 8, lineHeight: 1.4 }}>{msg}</div>;
                 })()}
                 <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
                   <button onClick={saveSession} className="disp" style={{ flex: 2, background: T.green, color: "#fff", border: "none", borderRadius: 8, padding: "11px 0", fontWeight: 800, fontSize: 15, textTransform: "uppercase" }}>
@@ -3775,7 +3774,7 @@ function FitnessCornerGenerator() {
                     <Stat k="streak" v={stats.streak.current} sub={`week streak${stats.streak.best > stats.streak.current ? ` · best ${stats.streak.best}` : ""}`} />
                   </div>
                   <div style={{ fontSize: 11.5, color: T.steel, marginTop: 10, lineHeight: 1.4 }}>
-                    A workout counts when you start it from a saved corner (nearest, My corners or Go) and tick at least {Math.round(BADGE_CONFIG.minCompletion * 100)}% of it done. Streak = weeks with at least one; rest days never break it.
+                    A workout counts when you start it from a saved corner (nearest, My corners or Go) and save it at the end. Streak = weeks with at least one; rest days never break it.
                   </div>
                 </div>
               );

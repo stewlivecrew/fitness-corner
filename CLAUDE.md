@@ -428,26 +428,30 @@ see the design doc summarised in the `[fitness-test]` decision entry.
   Saved (grey) / Verified (grey-green, map corner you confirmed) → First
   workout (green, 1) → Regular bronze (5) → silver (10) → gold (25).
 - **All numbers live in `BADGE_CONFIG`** (top of the JSX):
-  `minCompletion` 0.6, `gpsRadiusM` 150, `cornerTiers`, `explorerTiers`
+  `gpsRadiusM` 150, `cornerTiers`, `explorerTiers`
   (Explorer 1 / Pathfinder 3 / Trailblazer 10 / Island-wide 25 unique
   corners), base tier colours. **All PROVISIONAL** — tune after real use.
-- **What counts:** saved with ≥ `minCompletion` of the workout ticked
-  done (main stations for straight sets, rounds for circuit) AND linked to
-  a saved corner by picking it (nearest list, My corners, ▶ Go / Go same
-  as last time, chip, or confirming a new corner → `cornerVia: "pick"`,
-  persisted in `fc-settings`). Choosing the corner only in the save-screen
-  dropdown (`"select"`) counts only if location permission is ALREADY
-  granted and you're within `gpsRadiusM` of the map corner (fresh fix, 6 s
-  timeout) — the app never prompts for location for this. The rating panel
-  says whether/why it will count. Uncounted workouts are still logged.
+- **What counts (rule v2, owner 2026-10-09 — no tick threshold):** the
+  workout is finished and saved (Save on the rating screen) AND it was
+  linked to a saved corner by picking it (nearest list, My corners, home
+  ▶ Go / Go same as last time, chip, or confirming a new corner →
+  `cornerVia: "pick"`, persisted in `fc-settings`). Choosing the corner
+  only in the save-screen dropdown (`"select"`) counts only if location
+  permission is ALREADY granted and you're within `gpsRadiusM` of the map
+  corner (fresh fix, 6 s timeout) — never prompts. The rating panel says
+  "Counts toward <corner>" or the corner-link reason it won't. Uncounted
+  workouts are still logged. (supersedes: the 60% ticked-done rule.)
 - **Storage:** `fc-visits` = counted workouts, newest first, UNCAPPED
   (the log keeps 100, tiers must never go backwards): `{ at, corner,
-  placeId, completion, via: pick|gps|backfill, course: null }`. Log entries
-  also get `completion`, `counted`, `via`, `course: null`. Renames move
+  placeId, via: pick|gps|backfill, course: null }` (visits written under
+  rule v1 may still carry an unused `completion`). Log entries also get
+  `counted`, `via`, `course: null`. `fc-visits-rule` (= `VISITS_RULE`, 2)
+  marks which rule built the list. Renames move
   visits; deleting a corner keeps its visits (still counts as a corner
-  trained at). **Backfill:** when `fc-visits` is missing (first run, or an
-  imported backup without it) it's built once from `fc-log` entries whose
-  corner is a saved corner and whose ticks reach `minCompletion`.
+  trained at). **Backfill/recount:** when `fc-visits` is missing or `fc-visits-rule` ≠
+  `VISITS_RULE` (first run, v1 data, or an imported backup without them)
+  it's rebuilt once: EVERY `fc-log` entry at a saved corner counts, plus
+  older visits no longer in the 100-entry log are kept (matched by date).
   Exported with every other `fc-*` key; Reset deletes it.
 - **Profile:** explorer tier (unique corners with ≥ 1 counted workout),
   corners verified (map corners confirmed and still saved), counted
@@ -766,9 +770,9 @@ Format: `[decision] what — why. (supersedes: none unless noted)`
 - [corner-tiers] Per-corner progress is a colour tier on the corner
   itself (stripe + name) with one small text line, not badge icons —
   owner asked for no clutter. Counts live in their own uncapped
-  `fc-visits` key (the log is capped at 100) and need ≥ 60% ticked + a
-  deliberate corner pick, so tiers mean "trained here", not "opened the
-  app here". Thresholds provisional in `BADGE_CONFIG`.
+  `fc-visits` key (the log is capped at 100) and need a saved workout +
+  a deliberate corner pick (60% ticked-done threshold dropped by the
+  owner 2026-10-09 — finishing and saving is enough). Thresholds provisional in `BADGE_CONFIG`.
 
 ### Known limitations (honest list)
 
