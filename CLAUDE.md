@@ -120,6 +120,10 @@ Exercise entry schema (compiled `EXERCISES` array, generated — read-only):
   class. `calves` label reads "Calves & shins" (covers tibialis).
 - **FOCUS** defines patterns per focus AND a muscle `scope` used by
   three-state coverage (hit / in-focus gap / off-duty-by-design).
+- **Full body alternates its vertical slot** (`focusPatterns(focus,
+  vslot)`): pull-up day ↔ overhead-push day, flipped per Generate from
+  the last saved full-body log entry (`gen.vslot`, logged as `vslot`);
+  "Switch" on the Workout tab overrides. Stays at 6 stations.
 
 ### Generator invariants (buildSession / buildAthletic)
 
@@ -363,6 +367,9 @@ Format: `[decision] what — why. (supersedes: none unless noted)`
   save (rather than rewording the UI) — the on-screen progression
   standard tells users to promote with "Harder +", so not remembering
   it silently undid their decision every session.
+- [full-body] Rotate vertical pull/push instead of adding a 7th station —
+  full body never trained overhead pushing; a 7th slot adds ~3–4 min to
+  every session, rotation keeps length and gives both every 2 sessions.
 - [content-authoring] Exercise data moved from hand-edited `EXERCISES`
   array to `exercises.md` + `scripts/build_exercises.py` generator — the
   raw JS array (single-line-per-entry, ~124 entries) was hard to browse

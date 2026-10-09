@@ -368,6 +368,14 @@ const FOCUS = {
 };
 FOCUS.full.scope = Object.keys(MUSCLES);
 
+// Full body alternates its vertical slot: pull-up day ↔ overhead-push day
+// (decided per Generate from your last saved full-body session). Keeps the
+// session at 6 stations while still training overhead pushing every other time.
+function focusPatterns(focus, vslot) {
+  const ps = FOCUS[focus].patterns;
+  return focus === "full" && vslot === "push" ? ps.map((p) => (p === "verticalPull" ? "verticalPush" : p)) : ps;
+}
+
 const LEVELS = ["Beginner", "Intermediate", "Advanced", "Expert"];
 
 // ---- Controlled variety ----
@@ -405,10 +413,10 @@ function eligible(pattern, level, eq) {
   ).sort((a, b) => b.lvl - a.lvl);
 }
 
-function buildSession(focus, level, eq, adjs, mem, seed = 1, avoidList = []) {
+function buildSession(focus, level, eq, adjs, mem, seed = 1, avoidList = [], vslot = "pull") {
   const used = new Set();
   const avoid = new Set(avoidList);
-  return FOCUS[focus].patterns.map((pattern, idx) => {
+  return focusPatterns(focus, vslot).map((pattern, idx) => {
     // Per-station RNG so stepping one station never reshuffles the others.
     const rng = mulberry32((seed ^ hashStr(pattern + ":" + idx)) >>> 0);
     const effLevel = Math.min(4, Math.max(1, level + (adjs[idx] || 0) + ((mem && mem[pattern]) || 0)));
@@ -668,7 +676,7 @@ function FitnessCornerGenerator() {
       // generated workout and any in-progress clock / ticks / ratings.
       try {
         const r = await window.storage.get("fc-active"); const a = JSON.parse(r.value);
-        if (a.gen && typeof a.gen.seed === "number") setGen({ seed: a.gen.seed, avoid: Array.isArray(a.gen.avoid) ? a.gen.avoid : [] });
+        if (a.gen && typeof a.gen.seed === "number") setGen({ seed: a.gen.seed, avoid: Array.isArray(a.gen.avoid) ? a.gen.avoid : [], vslot: a.gen.vslot === "push" ? "push" : "pull" });
         if (a.swaps) setSwaps(a.swaps);
         if (a.adjs) setAdjs(a.adjs);
         if ((a.phase === "running" || a.phase === "rating") && a.startTs) {
@@ -699,7 +707,7 @@ function FitnessCornerGenerator() {
   }, [phase]);
 
   const { session, athletic } = useMemo(() => {
-    const s = buildSession(focus, level, eq, adjs, patternMem, gen.seed, gen.avoid);
+    const s = buildSession(focus, level, eq, adjs, patternMem, gen.seed, gen.avoid, gen.vslot);
     const used = new Set(s.filter((x) => !x.missing).map((x) => x.pick.name));
     const a = power ? buildAthletic(level, eq, used, adjs) : [];
     return { session: s, athletic: a };
@@ -807,7 +815,7 @@ function FitnessCornerGenerator() {
       return { pattern: s.pattern, name: ex.name, lvl: ex.lvl, doneAt: done[i] ?? null, rating: ratings[i] || null, adj: adjs[i] || 0 };
     }).filter(Boolean);
     const entry = {
-      date: new Date().toISOString(), corner: activeCorner || "Unnamed corner", focus: FOCUS[focus].label,
+      date: new Date().toISOString(), corner: activeCorner || "Unnamed corner", focus: FOCUS[focus].label, vslot: focus === "full" ? (gen.vslot || "pull") : undefined,
       durationSec: startTs ? Math.floor((Date.now() - startTs) / 1000) : 0, stations, format,
       warmupAt: done["warmup"] ?? null, cooldownAt: done["cooldown"] ?? null,
       rounds: format === "circuit" ? Array.from({ length: sets }).map((_, r) => done["r" + r] ?? null) : null,
@@ -886,7 +894,10 @@ function FitnessCornerGenerator() {
     const lg = log || [];
     const atCorner = corner ? lg.find((en) => en.corner === corner) : null;
     [atCorner, lg[0]].forEach((en) => en && (en.stations || []).forEach((st) => avoid.add(st.name)));
-    setGen({ seed: newSeed(), avoid: [...avoid] });
+    // Full body: flip the vertical slot relative to the last saved full-body session.
+    const lastFull = lg.find((en) => en.focus === FOCUS.full.label);
+    const vslot = lastFull && !(lastFull.stations || []).some((st) => st.pattern === "verticalPush") ? "push" : "pull";
+    setGen({ seed: newSeed(), avoid: [...avoid], vslot });
     setSwaps({}); setAdjs({});
   };
 
@@ -916,9 +927,10 @@ function FitnessCornerGenerator() {
 
   // Warm-up/cool-down adapt to what the session actually trains today.
   // "Full body" naturally trips both (it spans upper + lower patterns) — full coverage by construction, not a special case.
-  const needsUpperPrep = FOCUS[focus].patterns.some((p) => ["verticalPush", "verticalPull", "horizontalPush", "horizontalPull"].includes(p));
-  const needsLowerPrep = FOCUS[focus].patterns.some((p) => ["kneeDominant", "hipDominant", "gripAthletic"].includes(p));
-  const needsGripPrep = FOCUS[focus].patterns.includes("gripAthletic");
+  const todayPatterns = focusPatterns(focus, gen.vslot);
+  const needsUpperPrep = todayPatterns.some((p) => ["verticalPush", "verticalPull", "horizontalPush", "horizontalPull"].includes(p));
+  const needsLowerPrep = todayPatterns.some((p) => ["kneeDominant", "hipDominant", "gripAthletic"].includes(p));
+  const needsGripPrep = todayPatterns.includes("gripAthletic");
 
   return (
     <div style={{ minHeight: "100vh", background: T.bg, color: T.ink, fontFamily: "'Barlow', system-ui, sans-serif" }}>
@@ -1214,7 +1226,7 @@ function FitnessCornerGenerator() {
                   🔀 New mix — same level, different exercises
                 </button>
                 {(() => {
-                  const stMin = Math.round(FOCUS[focus].patterns.length * sets * (format === "straight" ? 1.8 : 1.1));
+                  const stMin = Math.round(todayPatterns.length * sets * (format === "straight" ? 1.8 : 1.1));
                   const est = (warmup ? 5 : 0) + (power ? 7 : 0) + stMin + (mobility ? 6 : 0);
                   return (
                     <div style={{ fontSize: 12.5, color: T.steel, marginTop: 6, textAlign: "center" }}>
@@ -1427,6 +1439,22 @@ function FitnessCornerGenerator() {
               </>
             )}
 
+            {focus === "full" && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#E7EDE3", borderRadius: 8, padding: "8px 10px", marginBottom: 10, fontSize: 13, color: T.ink }}>
+                <span style={{ flex: 1 }}>
+                  <b>Today: {gen.vslot === "push" ? "overhead-push day" : "pull-up day"}.</b> Full body alternates pull-ups and overhead pushing each session.
+                </span>
+                {phase === "idle" && (
+                  <button
+                    onClick={() => { setGen((g) => ({ ...g, vslot: g.vslot === "push" ? "pull" : "push" })); resetTweaks(); }}
+                    className="disp"
+                    style={{ background: "transparent", border: `2px solid ${T.green}`, color: T.green, borderRadius: 6, padding: "4px 10px", fontWeight: 800, fontSize: 12, textTransform: "uppercase" }}
+                  >
+                    Switch
+                  </button>
+                )}
+              </div>
+            )}
             <div style={{ fontSize: 13.5, color: T.steel, marginBottom: 6 }}>{restLine}</div>
             <div style={{ fontSize: 13.5, color: T.steel, marginBottom: 14, lineHeight: 1.45 }}>
               <span className="disp" style={{ fontWeight: 800, color: T.green, textTransform: "uppercase", letterSpacing: "0.04em" }}>Progression standard:</span> when you can complete every set at the top of an exercise's rep range with perfect form and control — two sessions in a row — promote that pattern one level with "Harder +" — when you save the session, the level you finished at is remembered for next time. Until then, win by one more rep, one more second, or a slower tempo.
