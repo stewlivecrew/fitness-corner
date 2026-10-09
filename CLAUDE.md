@@ -123,7 +123,14 @@ Exercise entry schema (compiled `EXERCISES` array, generated — read-only):
 
 ### Generator invariants (buildSession / buildAthletic)
 
-1. Pick the hardest eligible exercise at or below effective level.
+1. Pick the hardest eligible TIER at or below effective level. Within
+   that tier, order is: not done recently first (names from the last
+   session at this corner + the most recent session overall, captured
+   at Generate time), then a seeded shuffle. The seed is drawn fresh on
+   Generate / "New mix" and kept in `gen` state, so re-renders never
+   reshuffle; each station gets its own RNG (seed ^ hash(pattern:idx))
+   so stepping one station never reshuffles the others. Level still sets
+   the floor — variety only reorders one tier.
 2. Effective level = global level + manual stepper adj + auto-memory adj,
    clamped 1–4.
 3. Swap alternatives = peers at the SAME top tier only (easier exercises
@@ -313,6 +320,12 @@ Format: `[decision] what — why. (supersedes: none unless noted)`
 - [distribution] Standalone single-file HTML with localStorage shim for
   beta — zero backend, works for account-less testers; port to real
   hosting + DB only if session-#2 metric validates.
+- [variety] Seeded random pick within the top tier + rotate away from
+  recently-done exercises — the deterministic "first in the array" pick
+  gave the identical session at the same corner every visit, which
+  defeats a zero-thinking app used repeatedly at the same few corners.
+  Athletic block stays deterministic (invariant 7). (supersedes: the
+  implicit array-order pick in invariant 1)
 - [content-authoring] Exercise data moved from hand-edited `EXERCISES`
   array to `exercises.md` + `scripts/build_exercises.py` generator — the
   raw JS array (single-line-per-entry, ~124 entries) was hard to browse

@@ -380,15 +380,44 @@ FOCUS.full.scope = Object.keys(MUSCLES);
 
 const LEVELS = ["Beginner", "Intermediate", "Advanced", "Expert"];
 
+// ---- Controlled variety ----
+// Seeded RNG: the same seed always rebuilds the same workout (stable across
+// re-renders and reloads); every Generate / New mix draws a fresh seed.
+function mulberry32(a) {
+  return function () {
+    a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function newSeed() { return Math.floor(Math.random() * 2147483647); }
+function hashStr(s) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+// Order same-tier peers: exercises not done recently first, then a seeded
+// shuffle. Level still sets the floor — this only reorders one tier.
+function orderPeers(peers, rng, avoid) {
+  return peers
+    .map((e) => ({ e, r: rng() }))
+    .sort((a, b) => (avoid.has(a.e.name) - avoid.has(b.e.name)) || (a.r - b.r))
+    .map((k) => k.e);
+}
+
 function eligible(pattern, level, eq) {
   return EXERCISES.filter(
     (e) => e.p === pattern && e.lvl <= level && e.req.every((r) => eq.includes(r))
   ).sort((a, b) => b.lvl - a.lvl);
 }
 
-function buildSession(focus, level, eq, adjs, mem) {
+function buildSession(focus, level, eq, adjs, mem, seed = 1, avoidList = []) {
   const used = new Set();
+  const avoid = new Set(avoidList);
   return FOCUS[focus].patterns.map((pattern, idx) => {
+    // Per-station RNG so stepping one station never reshuffles the others.
+    const rng = mulberry32((seed ^ hashStr(pattern + ":" + idx)) >>> 0);
     const effLevel = Math.min(4, Math.max(1, level + (adjs[idx] || 0) + ((mem && mem[pattern]) || 0)));
     let pool = eligible(pattern, effLevel, eq).filter((e) => !used.has(e.name));
     if (pool.length === 0) {
@@ -403,7 +432,7 @@ function buildSession(focus, level, eq, adjs, mem) {
     // Swap moves sideways: only variants at the hardest available tier.
     // Easier tiers are reachable only via the level stepper.
     const topLvl = pool[0].lvl;
-    const peers = pool.filter((e) => e.lvl === topLvl);
+    const peers = orderPeers(pool.filter((e) => e.lvl === topLvl), rng, avoid);
     const pick = peers[0];
     used.add(pick.name);
     const next = EXERCISES.filter(
@@ -463,7 +492,7 @@ function StationPlate({ num, eyebrow, ex, setsText, canSwap, onSwap, guideOpen, 
           <div className="disp" style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: T.steel }}>
             {eyebrow}
           </div>
-          <div className="disp" style={{ fontSize: 21, fontWeight: 800, lineHeight: 1.1, textTransform: "uppercase", letterSpacing: "0.01em" }}>
+          <div className="disp" data-station={ex.name} data-lvl={ex.lvl} style={{ fontSize: 21, fontWeight: 800, lineHeight: 1.1, textTransform: "uppercase", letterSpacing: "0.01em" }}>
             {ex.name}
           </div>
           <div className="disp" style={{ fontSize: 16, fontWeight: 700, color: T.green, marginTop: 2 }}>
@@ -579,6 +608,7 @@ function FitnessCornerGenerator() {
   const [warmup, setWarmup] = useState(true);
   const [power, setPower] = useState(false);
   const [mobility, setMobility] = useState(true);
+  const [gen, setGen] = useState(() => ({ seed: newSeed(), avoid: [] })); // variety: seed + recently-done names to rotate away from
   const [swaps, setSwaps] = useState({}); // pattern-index -> offset
   const [adjs, setAdjs] = useState({}); // pattern-index -> level delta
   const [guides, setGuides] = useState({}); // pattern-index -> guide open
@@ -616,11 +646,11 @@ function FitnessCornerGenerator() {
   }, [phase]);
 
   const { session, athletic } = useMemo(() => {
-    const s = buildSession(focus, level, eq, adjs, patternMem);
+    const s = buildSession(focus, level, eq, adjs, patternMem, gen.seed, gen.avoid);
     const used = new Set(s.filter((x) => !x.missing).map((x) => x.pick.name));
     const a = power ? buildAthletic(level, eq, used, adjs) : [];
     return { session: s, athletic: a };
-  }, [focus, level, eq, adjs, power, patternMem]);
+  }, [focus, level, eq, adjs, power, patternMem, gen]);
 
   useEffect(() => {
     if (!athletic.some((s) => !s.missing)) return;
@@ -708,6 +738,17 @@ function FitnessCornerGenerator() {
   };
 
   const applyPreset = (p) => { setActiveCorner(""); setEq(p.eq); };
+
+  // Fresh seed + rotate away from what you did last time at this corner and in
+  // your most recent session. `extra` lets "New mix" also dodge today's picks.
+  const regenerate = (corner = activeCorner, extra = []) => {
+    const avoid = new Set(extra);
+    const lg = log || [];
+    const atCorner = corner ? lg.find((en) => en.corner === corner) : null;
+    [atCorner, lg[0]].forEach((en) => en && (en.stations || []).forEach((st) => avoid.add(st.name)));
+    setGen({ seed: newSeed(), avoid: [...avoid] });
+    setSwaps({}); setAdjs({});
+  };
 
   const doSwap = (i, poolLen) =>
     setSwaps((s) => ({ ...s, [i]: ((s[i] || 0) + 1) % poolLen }));
@@ -945,7 +986,7 @@ function FitnessCornerGenerator() {
               </div>
             </Field>
             <button
-              onClick={() => { setSwaps({}); setAdjs({}); setStep(2); }}
+              onClick={() => { regenerate(); setStep(2); }}
               className="disp"
               style={{
                 marginTop: 12, width: "100%", background: T.yellow, color: T.greenDark,
@@ -969,6 +1010,13 @@ function FitnessCornerGenerator() {
                   style={{ width: "100%", background: T.green, color: "#fff", border: "none", borderRadius: 10, padding: "13px 0", fontSize: 17, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em" }}
                 >
                   ▶ Start session
+                </button>
+                <button
+                  onClick={() => regenerate(activeCorner, session.map((s, i) => (s.missing ? null : s.alternatives[(swaps[i] || 0) % s.alternatives.length].name)).filter(Boolean))}
+                  className="disp"
+                  style={{ width: "100%", marginTop: 8, background: "transparent", color: T.green, border: `2px solid ${T.green}`, borderRadius: 10, padding: "9px 0", fontSize: 14, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em" }}
+                >
+                  🔀 New mix — same level, different exercises
                 </button>
                 {(() => {
                   const stMin = Math.round(FOCUS[focus].patterns.length * sets * (format === "straight" ? 1.8 : 1.1));
@@ -1405,7 +1453,7 @@ function FitnessCornerGenerator() {
             )}
 
             <button
-              onClick={() => { setSwaps({}); setAdjs({}); setStep(0); }}
+              onClick={() => { regenerate(); setStep(0); }}
               className="disp"
               style={{
                 marginTop: 18, width: "100%", background: "transparent", color: T.green,
