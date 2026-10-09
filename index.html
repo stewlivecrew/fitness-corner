@@ -665,6 +665,8 @@ function FitnessCornerGenerator() {
   const [ratings, setRatings] = useState({}); // main station index -> easy|right|hard
   const [cornerName, setCornerName] = useState("");
   const [activeCorner, setActiveCorner] = useState("");
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [hasLastSetup, setHasLastSetup] = useState(false);
 
   useEffect(() => {
     if (!hasStorage) { setLog([]); return; }
@@ -672,8 +674,29 @@ function FitnessCornerGenerator() {
       try { const r = await window.storage.get("fc-corners"); setSavedCorners(JSON.parse(r.value)); } catch { setSavedCorners({}); }
       try { const r = await window.storage.get("fc-log"); setLog(JSON.parse(r.value)); } catch { setLog([]); }
       try { const r = await window.storage.get("fc-levels"); const v = JSON.parse(r.value); setPatternMem(v.mem || {}); streakRef.current = v.streak || {}; } catch { setPatternMem({}); streakRef.current = {}; }
+      // Two-tap start: restore the last corner + session settings.
+      try {
+        const r = await window.storage.get("fc-settings"); const v = JSON.parse(r.value);
+        if (Array.isArray(v.eq)) setEq(v.eq.filter((id) => EQUIPMENT.some((q) => q.id === id)));
+        if ([1, 2, 3, 4].includes(v.level)) setLevel(v.level);
+        if (FOCUS[v.focus]) setFocus(v.focus);
+        if ([2, 3, 4, 5].includes(v.sets)) setSets(v.sets);
+        if (v.format === "circuit" || v.format === "straight") setFormat(v.format);
+        if (typeof v.warmup === "boolean") setWarmup(v.warmup);
+        if (typeof v.power === "boolean") setPower(v.power);
+        if (typeof v.mobility === "boolean") setMobility(v.mobility);
+        if (typeof v.activeCorner === "string") setActiveCorner(v.activeCorner);
+        setHasLastSetup(true);
+      } catch { /* first visit — keep defaults */ }
+      setSettingsLoaded(true);
     })();
   }, [hasStorage]);
+
+  useEffect(() => {
+    if (!hasStorage || !settingsLoaded) return;
+    const v = { eq, level, focus, sets, format, warmup, power, mobility, activeCorner };
+    window.storage.set("fc-settings", JSON.stringify(v)).catch((e) => console.warn(e));
+  }, [hasStorage, settingsLoaded, eq, level, focus, sets, format, warmup, power, mobility, activeCorner]);
 
   useEffect(() => {
     if (phase !== "running") return;
@@ -786,6 +809,13 @@ function FitnessCornerGenerator() {
     setSwaps({}); setAdjs({});
   };
 
+  // "Go": load a corner (or keep the current setup) and jump straight to a fresh workout.
+  const go = (corner, eqList) => {
+    if (eqList) { setEq(eqList); setActiveCorner(corner); }
+    regenerate(eqList ? corner : activeCorner);
+    setStep(2);
+  };
+
   const doSwap = (i, poolLen) =>
     setSwaps((s) => ({ ...s, [i]: ((s[i] || 0) + 1) % poolLen }));
 
@@ -852,6 +882,18 @@ function FitnessCornerGenerator() {
         {/* ================= STEP 1: EQUIPMENT ================= */}
         {step === 0 && (
           <>
+            {hasLastSetup && (
+              <button
+                onClick={() => go()}
+                className="disp"
+                style={{ width: "100%", marginBottom: 14, background: T.yellow, color: T.greenDark, border: "none", borderRadius: 10, padding: "12px 14px", textAlign: "left", fontWeight: 800, fontSize: 17, textTransform: "uppercase", letterSpacing: "0.05em" }}
+              >
+                ▶ Go — same as last time
+                <div style={{ fontFamily: "'Barlow', system-ui, sans-serif", textTransform: "none", letterSpacing: 0, fontWeight: 500, fontSize: 13, marginTop: 2 }}>
+                  {activeCorner ? `📍 ${activeCorner}` : `${eq.length} item${eq.length === 1 ? "" : "s"} ticked`} · {FOCUS[focus].label} · {LEVELS[level - 1]} · {sets} sets · {format === "straight" ? "straight sets" : "circuit"}
+                </div>
+              </button>
+            )}
             <p style={{ fontSize: 15, color: T.steel, margin: "4px 0 6px" }}>
               Tap what you can see at this corner. Ground exercises are always included.
             </p>
@@ -886,20 +928,33 @@ function FitnessCornerGenerator() {
               </button>
             </div>
             {Object.keys(savedCorners).length > 0 && (
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+              <div style={{ marginBottom: 14 }}>
+                <div className="disp" style={{ fontWeight: 800, fontSize: 13, textTransform: "uppercase", letterSpacing: "0.1em", color: T.green, marginBottom: 6 }}>
+                  My corners — tap Go to start
+                </div>
                 {Object.entries(savedCorners).map(([nm, eqList]) => (
-                  <button
-                    key={nm}
-                    onClick={() => { setEq(eqList); setActiveCorner(nm); }}
-                    className="disp"
-                    style={{
-                      border: `2px solid ${activeCorner === nm ? T.green : T.line}`, background: activeCorner === nm ? T.green : T.card,
-                      color: activeCorner === nm ? "#fff" : T.ink, borderRadius: 999, padding: "6px 14px",
-                      fontSize: 14, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em",
-                    }}
-                  >
-                    📍 {nm}
-                  </button>
+                  <div key={nm} data-corner={nm} style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+                    <button
+                      onClick={() => { setEq(eqList); setActiveCorner(nm); }}
+                      className="disp"
+                      style={{
+                        flex: 1, textAlign: "left", minHeight: 44,
+                        border: `2px solid ${activeCorner === nm ? T.green : T.line}`, background: activeCorner === nm ? T.green : T.card,
+                        color: activeCorner === nm ? "#fff" : T.ink, borderRadius: 10, padding: "8px 12px",
+                        fontSize: 15, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em",
+                      }}
+                    >
+                      📍 {nm} <span style={{ fontWeight: 500, fontSize: 12, opacity: 0.75 }}>· {eqList.length} item{eqList.length === 1 ? "" : "s"}</span>
+                    </button>
+                    <button
+                      onClick={() => go(nm, eqList)}
+                      aria-label={`Go: workout at ${nm}`}
+                      className="disp"
+                      style={{ minWidth: 64, minHeight: 44, background: T.yellow, color: T.greenDark, border: "none", borderRadius: 10, fontWeight: 800, fontSize: 15, textTransform: "uppercase", letterSpacing: "0.06em" }}
+                    >
+                      ▶ Go
+                    </button>
+                  </div>
                 ))}
               </div>
             )}

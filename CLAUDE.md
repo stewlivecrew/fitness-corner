@@ -186,7 +186,9 @@ Exercise entry schema (compiled `EXERCISES` array, generated — read-only):
   "too hard" ×1 → −1 immediately (floor −3). Asymmetric on purpose:
   demote fast, promote cautiously.
 - Storage keys: `fc-corners` (name → equipment[]), `fc-log` (sessions,
-  newest first, cap 100), `fc-levels` ({mem, streak}). Standalone shim
+  newest first, cap 100), `fc-levels` ({mem, streak}), `fc-settings`
+  (last eq/level/focus/sets/format/toggles/activeCorner — restored on
+  load; powers "▶ Go — same as last time" and per-corner ▶ Go). Standalone shim
   prefixes with `fc:` in localStorage. All storage ops wrapped in
   try/catch; missing storage degrades gracefully with a visible banner.
 - Named-corner chip deselects the moment equipment is edited — the
@@ -335,6 +337,9 @@ Format: `[decision] what — why. (supersedes: none unless noted)`
   machine, and machines vanished entirely above Beginner. Thin stations
   (leg-raise, push-up bars, sit-up bench, Swiss ladder, beam) got 3–4
   entries each so they actually show up.
+- [two-tap] Settings + last corner persist; each saved corner has ▶ Go
+  (load corner → fresh seed → Workout tab) and the Equipment tab opens
+  with "▶ Go — same as last time". Open app → Go is the target flow.
 - [content-authoring] Exercise data moved from hand-edited `EXERCISES`
   array to `exercises.md` + `scripts/build_exercises.py` generator — the
   raw JS array (single-line-per-entry, ~124 entries) was hard to browse
