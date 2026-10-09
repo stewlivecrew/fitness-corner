@@ -130,6 +130,60 @@ yet built in (use this to stage new exercise ideas before they're ready).
 - cue: The slow lower IS the exercise. Fight every centimetre.
 - status: active
 
+### Lever shoulder press — slow tempo
+- level: 2
+- requires: shoulderPressM
+- reps: 10–12
+- muscles: shoulders, triceps
+- how: Sit in the machine with your back against the pad and grip the handles beside your shoulders. Press up for a count of 1, then lower for a slow count of 3 and pause for 1 second at the bottom before the next rep.
+- cue: The light fixed load only becomes training when you slow down — never let the handles drop.
+- status: active
+
+### Single-arm lever shoulder press
+- level: 3
+- requires: shoulderPressM
+- reps: 8–12 / side
+- muscles: shoulders, triceps, abs
+- how: Sit in the machine with your back against the pad and hold one handle beside your shoulder — say your right hand — with your left hand resting on your thigh. Press the right handle up until your arm is straight, lower slowly, and finish all reps before switching to your left arm.
+- cue: Don't lean away from the working arm — your trunk stays square and tall.
+- status: active
+
+### Single-arm lever shoulder press — 5-second lowering
+- level: 4
+- requires: shoulderPressM
+- reps: 6–8 / side
+- muscles: shoulders, triceps, abs
+- how: Sit in the machine with your back against the pad and hold one handle beside your shoulder — say your right hand. Press up, hold the top for 2 seconds, then take a full 5 seconds to lower and pause at the bottom for 2 seconds. Finish all reps, then switch to your left arm.
+- cue: Count the 5 out loud — the lowering is the exercise.
+- status: active
+
+### Log lift — slow lowering
+- level: 2
+- requires: logLift
+- reps: 8–10
+- muscles: shoulders, triceps, abs
+- how: Stand under the log with feet hip-width apart and grip it with both hands just outside your shoulders. Press it overhead until your arms are straight, then take 3 seconds to lower it back to your shoulders.
+- cue: Squeeze your glutes so your lower back doesn't arch as the log goes up.
+- status: active
+
+### Log lift — split stance with overhead pause
+- level: 3
+- requires: logLift
+- reps: 8–10
+- muscles: shoulders, triceps, abs, glutes
+- how: Stand under the log in a short split stance — say left foot forward, right foot back — and grip it just outside your shoulders. Press it overhead, hold 2 seconds with arms straight, then lower slowly. Halfway through the set, swap so your right foot is forward.
+- cue: Ribs down, glutes tight — the split stance exposes any lean back.
+- status: active
+
+### Log lift — 1¼ reps
+- level: 4
+- requires: logLift
+- reps: 6–8
+- muscles: shoulders, triceps, abs
+- how: Stand under the log with feet hip-width apart and grip it just outside your shoulders. Press it halfway up, lower it back to your shoulders, then press all the way to straight arms — that whole sequence is one rep. Lower slowly each time.
+- cue: Make the bottom quarter deliberate; that's where the press usually stalls.
+- status: active
+
 ## Vertical Pull
 
 ### Dead hang + scapular pulls
@@ -247,6 +301,33 @@ yet built in (use this to stage new exercise ideas before they're ready).
 - muscles: lats, biceps, forearms, upperBack
 - how: Grip the bar with one hand, and wrap your other hand around that wrist instead of the bar. Pull your chin over the bar; the wrist hand assists only as much as needed.
 - cue: Slide the assisting hand lower on your forearm as you get stronger — a months-long project.
+- status: active
+
+### Lever pulldown — pause at the bottom
+- level: 2
+- requires: latPulldown
+- reps: 10–12
+- muscles: lats, biceps, upperBack
+- how: Sit in the machine and grip the handles above you with straight arms. Pull the handles down until your hands are beside your shoulders, hold there for 2 seconds while squeezing your shoulder blades down, then take 3 seconds to let them rise.
+- cue: Start each rep by pulling your shoulders down away from your ears, then bend the elbows.
+- status: active
+
+### Single-arm lever pulldown
+- level: 3
+- requires: latPulldown
+- reps: 8–12 / side
+- muscles: lats, biceps, upperBack, obliques
+- how: Sit in the machine and hold one handle above you — say with your right hand — with your left hand on your thigh. Pull the right handle down toward your right shoulder, then let it rise slowly. Finish the set, then switch to your left hand.
+- cue: Drive the elbow down toward your back pocket; don't twist your trunk to help.
+- status: active
+
+### Single-arm lever pulldown — 5-second lowering
+- level: 4
+- requires: latPulldown
+- reps: 6–8 / side
+- muscles: lats, biceps, upperBack
+- how: Sit in the machine and hold one handle above you — say with your right hand. Pull it down to your shoulder, hold 3 seconds, then take a full 5 seconds to let it rise back to a straight arm. Finish all reps, then switch to your left hand.
+- cue: Keep the shoulder down at the top — don't let the machine pull you into a shrug.
 - status: active
 
 ## Horizontal Push
@@ -368,6 +449,51 @@ yet built in (use this to stage new exercise ideas before they're ready).
 - cue: The further the lean, the harder — toes should feel almost weightless.
 - status: active
 
+### Lever chest press — slow tempo
+- level: 2
+- requires: chestPress
+- reps: 10–12
+- muscles: chest, triceps, shoulders
+- how: Sit in the machine with your back against the pad and grip the handles at chest height. Push them forward until your arms are straight, then take 3 seconds to bring them back and pause 1 second before the next rep.
+- cue: Shoulder blades stay pinned to the pad — push with the chest, not by rolling the shoulders forward.
+- status: active
+
+### Single-arm lever chest press
+- level: 3
+- requires: chestPress
+- reps: 8–12 / side
+- muscles: chest, triceps, shoulders, obliques
+- how: Sit with your back against the pad and hold one handle at chest height — say with your right hand — left hand resting on your thigh. Press the right handle forward until your arm is straight, return slowly, finish the set, then switch to your left arm.
+- cue: Your torso must not rotate toward the working side — brace as if someone is about to push you.
+- status: active
+
+### Single-arm lever chest press — pause and 5-second return
+- level: 4
+- requires: chestPress
+- reps: 6–8 / side
+- muscles: chest, triceps, shoulders
+- how: Sit with your back against the pad and hold one handle at chest height — say with your right hand. Press forward, hold the straight-arm position for 2 seconds, take 5 seconds to return, then pause 2 seconds with the handle near your chest. Finish all reps, then switch arms.
+- cue: The pause at the chest is the hardest part — no bouncing out of it.
+- status: active
+
+### Knee push-up on push-up bars
+- level: 1
+- requires: pushupBars
+- reps: 8–12
+- muscles: chest, triceps, shoulders
+- how: Kneel facing the push-up bars and grip one with each hand, wrists straight, then walk your knees back until your body is a straight line from knees to head. Bend your elbows to lower your chest between the bars, then push back up.
+- cue: Grip the bars firmly and keep your elbows at about 45° from your body.
+- status: active
+
+### Push-up on push-up bars
+- level: 2
+- requires: pushupBars
+- reps: 8–15
+- muscles: chest, triceps, shoulders, abs
+- how: Grip one push-up bar in each hand and step your feet back into a plank, body straight from head to heels. Lower your chest to the height of the bars, then push back up.
+- cue: Squeeze your glutes and thighs so your hips don't sag or pike.
+- status: active
+
 ## Horizontal Pull
 
 ### Incline row
@@ -449,6 +575,24 @@ yet built in (use this to stage new exercise ideas before they're ready).
 - muscles: lats, upperBack, abs, biceps
 - how: Hang from the high bar, pull your knees to your chest, and lean back until your back is flat and facing the ground — body horizontal, knees tucked. From there, pull the bar to your hips and lower back to straight arms, all while staying horizontal.
 - cue: Hold the horizontal body line the entire time — that's the exercise inside the exercise.
+- status: active
+
+### Swiss ladder row
+- level: 1
+- requires: swissLadder
+- reps: 8–12
+- muscles: upperBack, lats, biceps
+- how: Stand facing the Swiss ladder and grip a rung at chest height with both hands. Walk your feet a small step toward the ladder and lean back until your arms are straight, body in one line from head to heels. Pull your chest to the rung, then lower slowly.
+- cue: The closer your feet are to the ladder, the harder it gets — adjust until the last 2 reps are tough.
+- status: active
+
+### Swiss ladder row (low rung)
+- level: 2
+- requires: swissLadder
+- reps: 6–12
+- muscles: upperBack, lats, biceps
+- how: Stand facing the Swiss ladder and grip a rung at waist height with both hands. Walk your feet in close to the base and lean back until your arms are straight and your body is at a steep angle, one straight line from head to heels. Pull your chest to the rung, then lower slowly.
+- cue: Pause for a second with your chest at the rung and your shoulder blades squeezed together.
 - status: active
 
 ## Knee Dominant
@@ -587,6 +731,42 @@ yet built in (use this to stage new exercise ideas before they're ready).
 - muscles: quads, glutes
 - how: Stand on one leg with the other held straight out in front and arms reaching forward for balance. Squat all the way down on the standing leg, then stand back up.
 - cue: Heel stays glued down; free leg stays off the ground the whole rep.
+- status: active
+
+### Swiss ladder assisted squat
+- level: 1
+- requires: swissLadder
+- reps: 10–15
+- muscles: quads, glutes
+- how: Stand facing the Swiss ladder, feet shoulder-width apart, and hold a rung at waist height with both hands. Sit your hips back and down as deep as is comfortable, using your hands only as much as you need, then stand back up.
+- cue: Let the rung take some weight so you can sit deeper — chest up, heels down.
+- status: active
+
+### Leg press (lever) — slow with pause
+- level: 2
+- requires: legPressM
+- reps: 10–12
+- muscles: quads, glutes
+- how: Sit in the machine with your back against the pad and both feet flat on the footplate. Push the plate away until your legs are almost straight, then take 3 seconds to bend your knees back and pause 2 seconds at the bottom.
+- cue: Stop just short of locking your knees — keep the tension on the legs, not the joints.
+- status: active
+
+### Single-leg lever leg press
+- level: 3
+- requires: legPressM
+- reps: 8–12 / leg
+- muscles: quads, glutes
+- how: Sit in the machine with your back against the pad and place one foot — say your right — in the middle of the footplate, with your left foot resting on the frame. Push the plate away with your right leg, return slowly, finish the set, then switch to your left leg.
+- cue: Knee tracks in line with your middle toes — don't let it cave inward.
+- status: active
+
+### Single-leg lever leg press — 5-second lowering
+- level: 4
+- requires: legPressM
+- reps: 6–8 / leg
+- muscles: quads, glutes
+- how: Sit with your back against the pad and place one foot — say your right — in the middle of the footplate. Push the plate away, then take a full 5 seconds to bend the knee back and pause 2 seconds at the bottom. Finish all reps, then switch legs.
+- cue: If the lowering speeds up, the set is over.
 - status: active
 
 ## Hip Dominant
@@ -870,6 +1050,78 @@ yet built in (use this to stage new exercise ideas before they're ready).
 - muscles: obliques, abs, forearms
 - how: Hang from the bar and lift your straight legs up toward it. Keeping them up, sweep both legs side to side like a windshield wiper, under control.
 - cue: Elite rotation strength — small controlled arcs before big ones.
+- status: active
+
+### Captain's chair support hold
+- level: 1
+- requires: legRaise
+- reps: 15–25s
+- muscles: abs, shoulders, triceps
+- how: Step into the leg-raise station with your back against the pad and place your forearms on the arm pads, gripping the handles. Press down so your feet lift off the step, legs hanging straight, and hold.
+- cue: Push the pads away so your shoulders stay down — no shrugging into your ears.
+- status: active
+
+### Captain's chair knee tuck (half range)
+- level: 2
+- requires: legRaise
+- reps: 8–12
+- muscles: abs
+- how: Support yourself in the leg-raise station with your forearms on the pads and your back against the pad. Lift your knees until your thighs are level with the ground, then lower slowly until your legs hang straight.
+- cue: Lift with your stomach, not by swinging — pause for a second at the top.
+- status: active
+
+### Straight-leg raise (captain's chair)
+- level: 4
+- requires: legRaise
+- reps: 6–10
+- muscles: abs
+- how: Support yourself in the leg-raise station with your forearms on the pads and your back against the pad. Keeping your legs straight and together, lift them until they're level with the ground, then lower slowly.
+- cue: No swinging — if your legs swing back past the pad, slow down.
+- status: active
+
+### Decline sit-up negative
+- level: 1
+- requires: situpBench
+- reps: 6–10
+- muscles: abs
+- how: Sit on the sit-up bench with your feet hooked under the anchor and knees bent. From sitting upright, slowly lower your back toward the bench over 3–4 seconds, then use your hands on your thighs to help yourself sit back up.
+- cue: Curl down one segment of your back at a time — don't drop flat.
+- status: active
+
+### Twisting incline sit-up
+- level: 3
+- requires: situpBench
+- reps: 8–10 / side
+- muscles: obliques, abs
+- how: Sit on the sit-up bench with your feet hooked under the anchor and lie back. Sit up, and as you rise, turn your chest so your right shoulder points toward your left knee; lower slowly, then turn the other way on the next rep.
+- cue: The twist comes from your ribs, not from flinging an elbow.
+- status: active
+
+### Arms-overhead slow sit-up
+- level: 4
+- requires: situpBench
+- reps: 6–10
+- muscles: abs
+- how: Sit on the sit-up bench with your feet hooked under the anchor and lie back with both arms straight overhead beside your ears. Sit up without swinging your arms forward, then take 4 seconds to lower.
+- cue: Arms stay beside your ears — the moment they swing forward, the rep gets easier.
+- status: active
+
+### Swiss ladder straight-leg raise
+- level: 3
+- requires: swissLadder
+- reps: 6–10
+- muscles: abs, forearms
+- how: Stand with your back against the Swiss ladder and reach up to grip a rung above your head, so you hang with your back against the bars. Keeping your legs straight, lift them until they're level with the ground, then lower slowly.
+- cue: Press your lower back into the bars at the top — no swinging.
+- status: active
+
+### Tuck hold on push-up bars
+- level: 3
+- requires: pushupBars
+- reps: 10–20s
+- muscles: abs, triceps, shoulders
+- how: Sit on the ground between the push-up bars and grip one in each hand. Press down to lift your bottom off the ground, then pull your knees toward your chest so only your hands touch, and hold.
+- cue: Push the bars away — tall shoulders, back slightly rounded.
 - status: active
 
 ## Grip / Athletic
@@ -1266,5 +1518,45 @@ yet built in (use this to stage new exercise ideas before they're ready).
 - muscles: abs, shoulders, quads
 - how: Get into a bear crawl position — hands under shoulders, knees hovering just off the ground. Without letting your hips rotate or your knees touch down, lift one hand and tap the opposite shoulder, then place it back down and repeat on the other side.
 - cue: Stillness in the hips is the whole test — the tap itself should feel almost boring.
+- status: active
+
+### Swiss ladder climb
+- athletic: skill
+- level: 2
+- requires: swissLadder
+- reps: 2–3 climbs
+- muscles: forearms, lats, quads
+- how: Face the Swiss ladder and grip a rung at head height. Climb up three or four rungs, then climb back down, always keeping three points of contact — two hands and a foot, or two feet and a hand.
+- cue: Move one limb at a time and look where your foot is going before you step.
+- status: active
+
+### Single-leg beam balance
+- athletic: skill
+- level: 1
+- requires: beam
+- reps: 20–30s / leg
+- muscles: calves, abs
+- how: Step up onto the low beam with both feet, arms out to the sides. Lift one foot — say your right — and balance on your left leg for the full time, then switch legs. Step off whenever you need to.
+- cue: Eyes on a fixed point ahead; let your ankle make the tiny corrections.
+- status: active
+
+### Backward beam walk
+- athletic: skill
+- level: 3
+- requires: beam
+- reps: 2 lengths
+- muscles: calves, abs, quads
+- how: Stand at one end of the beam with your back to the direction you'll walk, arms out to the sides. Step backward, placing the ball of each foot on the beam before the heel, until you reach the other end.
+- cue: Feel for the beam with your toes before committing your weight.
+- status: active
+
+### Beam walk with squat touch
+- athletic: skill
+- level: 4
+- requires: beam
+- reps: 2 lengths
+- muscles: quads, calves, abs
+- how: Walk forward along the beam with your arms out. Halfway along, slowly squat down until you can touch the beam with one hand, stand back up without stepping off, then finish the length.
+- cue: Slow is the skill — rush the squat and you'll fall off.
 - status: active
 

@@ -82,7 +82,7 @@ this. Do not break it.
 
 ### Data model
 
-**`exercises.md` is the source of truth** (134 entries as of this writing).
+**`exercises.md` is the source of truth** (166 entries as of this writing).
 Authored per-exercise as a Markdown block (pattern heading → `###` name →
 `- field: value` lines, including a `status: active|candidate` field so new
 ideas can be staged without wiring them into the app yet). Run
@@ -130,7 +130,9 @@ Exercise entry schema (compiled `EXERCISES` array, generated — read-only):
    Generate / "New mix" and kept in `gen` state, so re-renders never
    reshuffle; each station gets its own RNG (seed ^ hash(pattern:idx))
    so stepping one station never reshuffles the others. Level still sets
-   the floor — variety only reorders one tier.
+   the floor — variety only reorders one tier. Ordering key, highest
+   priority first: uses ticked equipment (`req` non-empty) → not done
+   recently → seeded shuffle. Athletic block ties also prefer equipment.
 2. Effective level = global level + manual stepper adj + auto-memory adj,
    clamped 1–4.
 3. Swap alternatives = peers at the SAME top tier only (easier exercises
@@ -326,6 +328,13 @@ Format: `[decision] what — why. (supersedes: none unless noted)`
   defeats a zero-thinking app used repeatedly at the same few corners.
   Athletic block stays deterministic (invariant 7). (supersedes: the
   implicit array-order pick in invariant 1)
+- [equipment-wins] Ticked equipment beats ground-only peers at the same
+  tier, and every lever machine + the log lift got L2–L4 variants
+  (tempo, pauses, single-limb, 1¼ reps) — before this a multi-gen user
+  got "Prone lat pulldown" on the floor while standing at a lat-pulldown
+  machine, and machines vanished entirely above Beginner. Thin stations
+  (leg-raise, push-up bars, sit-up bench, Swiss ladder, beam) got 3–4
+  entries each so they actually show up.
 - [content-authoring] Exercise data moved from hand-edited `EXERCISES`
   array to `exercises.md` + `scripts/build_exercises.py` generator — the
   raw JS array (single-line-per-entry, ~124 entries) was hard to browse
