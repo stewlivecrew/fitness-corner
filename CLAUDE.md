@@ -245,7 +245,8 @@ Exercise entry schema (compiled `EXERCISES` array, generated — read-only):
   render, coverage, ratings and the log all read `picks`. Equipment /
   focus / level changes call `resetTweaks()` to drop stale swaps/steps.
 - Storage keys: `fc-corners` (name → equipment[]), `fc-places`
-  (map-corner confirmations, see Nearest corner), `fc-log` (sessions,
+  (map-corner confirmations, see Nearest corner), `fc-visits` (counted
+  workouts, see My corners), `fc-log` (sessions,
   newest first, cap 100), `fc-levels` ({mem, streak}), `fc-finisher`
   (finisher history), `fc-test` ({history: newest first, cap 20;
   offered; barCheckDismissed; snoozeUntil}), `fc-test-active` (an
@@ -390,6 +391,54 @@ see the design doc summarised in the `[fitness-test]` decision entry.
   contribution must NEVER be paywalled" (Layer 1) — e.g. submitting stays
   free, the shared verified layer + comments is the paid surface. Confirm
   with the owner before building.
+
+### My corners (tiers + profile)
+
+- **Where:** Equipment tab → "Progress ›" (next to the My corners list)
+  or Log tab → "My corners & progress" opens `step 5` (no 6th tab; the
+  Equipment tab stays highlighted). Profile card on top, then one card per
+  saved corner: name, area/PCN, equipment chips, "Confirmed by you on
+  <date>" (map corners) or "Your own corner", counted workouts, last
+  workout, ▶ Go, ✎ edit.
+- **One tier per corner, upgrading in place — no badge icons** (owner:
+  no clutter). Shown as the colour of the card's left stripe + corner
+  name, plus a small "Regular · bronze · 7 workouts · 3 to silver" line.
+  Saved (grey) / Verified (grey-green, map corner you confirmed) → First
+  workout (green, 1) → Regular bronze (5) → silver (10) → gold (25).
+- **All numbers live in `BADGE_CONFIG`** (top of the JSX):
+  `minCompletion` 0.6, `gpsRadiusM` 150, `cornerTiers`, `explorerTiers`
+  (Explorer 1 / Pathfinder 3 / Trailblazer 10 / Island-wide 25 unique
+  corners), base tier colours. **All PROVISIONAL** — tune after real use.
+- **What counts:** saved with ≥ `minCompletion` of the workout ticked
+  done (main stations for straight sets, rounds for circuit) AND linked to
+  a saved corner by picking it (nearest list, My corners, ▶ Go / Go same
+  as last time, chip, or confirming a new corner → `cornerVia: "pick"`,
+  persisted in `fc-settings`). Choosing the corner only in the save-screen
+  dropdown (`"select"`) counts only if location permission is ALREADY
+  granted and you're within `gpsRadiusM` of the map corner (fresh fix, 6 s
+  timeout) — the app never prompts for location for this. The rating panel
+  says whether/why it will count. Uncounted workouts are still logged.
+- **Storage:** `fc-visits` = counted workouts, newest first, UNCAPPED
+  (the log keeps 100, tiers must never go backwards): `{ at, corner,
+  placeId, completion, via: pick|gps|backfill, course: null }`. Log entries
+  also get `completion`, `counted`, `via`, `course: null`. Renames move
+  visits; deleting a corner keeps its visits (still counts as a corner
+  trained at). **Backfill:** when `fc-visits` is missing (first run, or an
+  imported backup without it) it's built once from `fc-log` entries whose
+  corner is a saved corner and whose ticks reach `minCompletion`.
+  Exported with every other `fc-*` key; Reset deletes it.
+- **Profile:** explorer tier (unique corners with ≥ 1 counted workout),
+  corners verified (map corners confirmed and still saved), counted
+  workouts, weekly streak (Monday-start weeks, SG local time, with ≥ 1
+  counted workout; the current week not yet trained doesn't break it;
+  best shown when higher). Pure helpers: `entryCompletion`,
+  `backfillVisits`, `weekKey`, `weeklyStreak`, `cornerStats`.
+- **Celebration** only after Save on the Workout tab (phase idle), when the
+  corner tier or explorer tier goes up — never mid-workout.
+- **Reserved, not built:** "On the run" (course mode: one run, several
+  corners). `course: null` on visits/log entries is the slot — fill with
+  `{ id, leg, of }` so a course counts per corner AND as one run.
+  Leaderboards/social = future paid, not built.
 
 ### Content style rules (enforce on every DB edit)
 
@@ -687,6 +736,13 @@ Format: `[decision] what — why. (supersedes: none unless noted)`
   presets ("I'd rather it get verified"). Confirmations live in a new
   `fc-places` key rather than reshaping `fc-corners`, so existing data,
   backups and generation are untouched.
+
+- [corner-tiers] Per-corner progress is a colour tier on the corner
+  itself (stripe + name) with one small text line, not badge icons —
+  owner asked for no clutter. Counts live in their own uncapped
+  `fc-visits` key (the log is capped at 100) and need ≥ 60% ticked + a
+  deliberate corner pick, so tiers mean "trained here", not "opened the
+  app here". Thresholds provisional in `BADGE_CONFIG`.
 
 ### Known limitations (honest list)
 

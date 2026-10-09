@@ -539,6 +539,88 @@ const dirLinks = (c) => ({
 const fmtDay = (iso) => new Date(iso).toLocaleDateString("en-SG", { day: "numeric", month: "short", year: "numeric" });
 
 /* ------------------------------------------------------------------ */
+/* CORNER TIERS + PROFILE — every number lives here (PROVISIONAL —     */
+/* tune after real use; see CLAUDE.md > My corners).                   */
+/* ------------------------------------------------------------------ */
+const BADGE_CONFIG = {
+  minCompletion: 0.6,   // share of stations (straight) / rounds (circuit) ticked done for a workout to count
+  gpsRadiusM: 150,      // optional: counts if location is ALREADY allowed and you're this close (never prompts)
+  // One tier per corner, upgrading in place, shown as the colour of the
+  // corner's accent stripe + name (no badge icons). Base: Verified (map
+  // corner you confirmed) or Saved (your own corner); then by counted workouts.
+  baseTiers: { saved: { label: "Saved", color: "#A3AAA0" }, verified: { label: "Verified", color: "#7C8A80" } },
+  cornerTiers: [
+    { min: 1, label: "First workout", color: "#2E7D46" },
+    { min: 5, label: "Regular · bronze", color: "#A9682E" },
+    { min: 10, label: "Regular · silver", color: "#7E8A96" },
+    { min: 25, label: "Regular · gold", color: "#C99A06" },
+  ],
+  // Profile: unique corners with at least one counted workout.
+  explorerTiers: [
+    { min: 1, label: "Explorer" },
+    { min: 3, label: "Pathfinder" },
+    { min: 10, label: "Trailblazer" },
+    { min: 25, label: "Island-wide" },
+  ],
+};
+// Share of the workout ticked done (main stations; circuit = rounds).
+function entryCompletion(en) {
+  if (!en) return 0;
+  if (Array.isArray(en.rounds) && en.rounds.length) return en.rounds.filter((x) => x != null).length / en.rounds.length;
+  const st = (en.stations || []).filter((s) => !s.athletic);
+  return st.length ? st.filter((s) => s.doneAt != null).length / st.length : 0;
+}
+// Backfill from the log, once, when fc-visits doesn't exist yet: an entry
+// counts if its corner is a saved corner and enough of it was ticked done.
+function backfillVisits(log, corners, placeByName) {
+  return (log || []).filter((en) => en && en.corner && corners[en.corner] && entryCompletion(en) >= BADGE_CONFIG.minCompletion)
+    .map((en) => ({ at: en.date, corner: en.corner, placeId: (placeByName[en.corner] && placeByName[en.corner].id) || null, completion: Math.round(entryCompletion(en) * 100) / 100, via: "backfill", course: null }))
+    .sort((a, b) => (a.at < b.at ? 1 : -1));
+}
+function tierFor(count, tiers) {
+  let idx = -1;
+  tiers.forEach((tr, i) => { if (count >= tr.min) idx = i; });
+  return { idx, tier: idx >= 0 ? tiers[idx] : null, next: tiers[idx + 1] || null };
+}
+// Monday-based week key in local time (SG). Rest days never break a weekly streak.
+function weekKey(when) {
+  const d = new Date(when); d.setHours(12, 0, 0, 0);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function weeklyStreak(visits, nowMs = Date.now()) {
+  const weeks = new Set(visits.map((v) => weekKey(v.at)));
+  const stepBack = (wk) => { const [y, m, dd] = wk.split("-").map(Number); return weekKey(new Date(y, m - 1, dd - 7, 12).getTime()); };
+  const nowKey = weekKey(nowMs);
+  // Not trained yet this week doesn't break it — count back from last week.
+  let k = weeks.has(nowKey) ? nowKey : stepBack(nowKey);
+  let current = 0;
+  while (weeks.has(k)) { current++; k = stepBack(k); }
+  let best = 0, run = 0, prev = null;
+  [...weeks].sort().forEach((w) => { run = prev && stepBack(w) === prev ? run + 1 : 1; best = Math.max(best, run); prev = w; });
+  return { current, best, thisWeek: weeks.has(nowKey) };
+}
+// Everything My corners and the save-screen celebration need, from fc-visits.
+function cornerStats(visits, corners, placeByName) {
+  const per = {};
+  visits.forEach((v) => {
+    const s = per[v.corner] || (per[v.corner] = { count: 0, last: null });
+    s.count++; if (!s.last || v.at > s.last) s.last = v.at;
+  });
+  const tier = (name) => {
+    const n = (per[name] && per[name].count) || 0;
+    const tf = tierFor(n, BADGE_CONFIG.cornerTiers);
+    const cur = tf.tier || BADGE_CONFIG.baseTiers[placeByName[name] ? "verified" : "saved"];
+    return { count: n, idx: tf.idx, label: cur.label, color: cur.color, next: tf.next };
+  };
+  const unique = Object.keys(per).length;
+  return {
+    per, tier, unique, explorer: tierFor(unique, BADGE_CONFIG.explorerTiers), total: visits.length,
+    verified: Object.keys(placeByName).filter((n) => corners[n]).length, streak: weeklyStreak(visits),
+  };
+}
+
+/* ------------------------------------------------------------------ */
 /* EQUIPMENT PICTOGRAMS — signage style, stroke = currentColor         */
 /* ------------------------------------------------------------------ */
 const ICONS = {
@@ -1912,12 +1994,17 @@ function FitnessCornerGenerator() {
   const [pendingPlace, setPendingPlace] = useState(null); // corner being confirmed/edited: { id?, name, desc, area, pcn, lat, lng, mode: new|edit, prevName? }
   const [placeName, setPlaceName] = useState("");
   const [cornerFlash, setCornerFlash] = useState(null);
+  // ---- My corners: counted visits (fc-visits), corner tiers, profile ----
+  const [visits, setVisits] = useState(null); // null = loading, "backfill" = build from the log once
+  const [cornerVia, setCornerVia] = useState(""); // how activeCorner was chosen: pick (nearest / My corners / Go) | select (save-screen dropdown)
+  const [celebration, setCelebration] = useState(null);
 
   useEffect(() => {
-    if (!hasStorage) { setLog([]); setFcTest({ history: [] }); return; }
+    if (!hasStorage) { setLog([]); setFcTest({ history: [] }); setVisits([]); return; }
     (async () => {
       try { const r = await window.storage.get("fc-corners"); setSavedCorners(JSON.parse(r.value)); } catch { setSavedCorners({}); }
       try { const r = await window.storage.get("fc-places"); const v = JSON.parse(r.value); setPlaces(v && typeof v === "object" ? v : {}); } catch { setPlaces({}); }
+      try { const r = await window.storage.get("fc-visits"); const v = JSON.parse(r.value); setVisits(Array.isArray(v) ? v : "backfill"); } catch { setVisits("backfill"); }
       try { const r = await window.storage.get("fc-log"); setLog(JSON.parse(r.value)); } catch { setLog([]); }
       try { const r = await window.storage.get("fc-levels"); const v = JSON.parse(r.value); setPatternMem(v.mem || {}); streakRef.current = v.streak || {}; } catch { setPatternMem({}); streakRef.current = {}; }
       try { const r = await window.storage.get("fc-finisher"); const v = JSON.parse(r.value); setFinisherLog({ hang: v.hang || [], jump: v.jump || [] }); } catch { /* none yet */ }
@@ -1933,6 +2020,7 @@ function FitnessCornerGenerator() {
         if (typeof v.power === "boolean") setPower(v.power);
         if (typeof v.mobility === "boolean") setMobility(v.mobility);
         if (typeof v.activeCorner === "string") setActiveCorner(v.activeCorner);
+        if (typeof v.cornerVia === "string") setCornerVia(v.cornerVia);
         setHasLastSetup(true);
       } catch { /* first visit — keep defaults */ }
       // Session safety: a reload (or iOS killing the tab) restores the
@@ -1972,9 +2060,9 @@ function FitnessCornerGenerator() {
 
   useEffect(() => {
     if (!hasStorage || !settingsLoaded) return;
-    const v = { eq, level, focus, sets, format, warmup, power, mobility, activeCorner };
+    const v = { eq, level, focus, sets, format, warmup, power, mobility, activeCorner, cornerVia };
     window.storage.set("fc-settings", JSON.stringify(v)).catch((e) => console.warn(e));
-  }, [hasStorage, settingsLoaded, eq, level, focus, sets, format, warmup, power, mobility, activeCorner]);
+  }, [hasStorage, settingsLoaded, eq, level, focus, sets, format, warmup, power, mobility, activeCorner, cornerVia]);
 
   useEffect(() => {
     if (!hasStorage || !settingsLoaded) return;
@@ -2031,7 +2119,7 @@ function FitnessCornerGenerator() {
   const elapsedSec = phase === "running" && startTs ? Math.floor((now - startTs) / 1000) : 0;
   const fmtT = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
-  const startSession = () => { setPhase("running"); setStartTs(Date.now()); setNow(Date.now()); setDone({}); setRatings({}); setRestEnd(null); setFinisherToday(null); };
+  const startSession = () => { setCelebration(null); setPhase("running"); setStartTs(Date.now()); setNow(Date.now()); setDone({}); setRatings({}); setRestEnd(null); setFinisherToday(null); };
 
   // ---- Rest countdown: tap after a set/round; length follows the format ----
   const restLen = format === "straight" ? (level >= 3 ? 120 : 90) : 75;
@@ -2088,6 +2176,11 @@ function FitnessCornerGenerator() {
     setSavedCorners(next);
     if (hasStorage) { try { await window.storage.set("fc-corners", JSON.stringify(next)); } catch (e) { console.error(e); } }
   };
+  const writeVisits = async (next) => {
+    setVisits(next);
+    if (hasStorage) { try { await window.storage.set("fc-visits", JSON.stringify(next)); } catch (e) { console.error(e); } }
+  };
+  const visitList = useMemo(() => (Array.isArray(visits) ? visits : []), [visits]);
 
   const writePlaces = async (next) => {
     setPlaces(next);
@@ -2112,6 +2205,23 @@ function FitnessCornerGenerator() {
     Object.values(places).forEach((pl) => { if (pl && pl.corner && savedCorners[pl.corner]) m[pl.corner] = pl; });
     return m;
   }, [places, savedCorners]);
+  // One-time backfill of counted visits from the existing log.
+  useEffect(() => {
+    if (!settingsLoaded || visits !== "backfill" || !Array.isArray(log)) return;
+    const v = backfillVisits(log, savedCorners, placeByCorner);
+    setVisits(v);
+    if (hasStorage) window.storage.set("fc-visits", JSON.stringify(v)).catch((e) => console.warn(e));
+  }, [hasStorage, settingsLoaded, visits, log, savedCorners, placeByCorner]);
+  const stats = useMemo(() => cornerStats(visitList, savedCorners, placeByCorner), [visitList, savedCorners, placeByCorner]);
+  // Optional GPS check: only if location is ALREADY allowed — never prompts.
+  const gpsNear = async (lat, lng) => {
+    try {
+      if (!navigator.permissions || !navigator.geolocation || lat == null) return false;
+      if ((await navigator.permissions.query({ name: "geolocation" })).state !== "granted") return false;
+      const p = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, { enableHighAccuracy: true, timeout: 6000, maximumAge: 0 }));
+      return distM(p.coords.latitude, p.coords.longitude, lat, lng) <= BADGE_CONFIG.gpsRadiusM;
+    } catch { return false; }
+  };
 
   // Rename a saved corner everywhere it's referenced (history keeps rotating by corner).
   const moveCornerName = async (oldName, name, corners, eqList) => {
@@ -2122,6 +2232,7 @@ function FitnessCornerGenerator() {
     if (activeCorner === oldName) setActiveCorner(name);
     const nextLog = (log || []).map((en) => (en.corner === oldName ? { ...en, corner: name } : en));
     setLog(nextLog);
+    if (visitList.some((v) => v.corner === oldName)) await writeVisits(visitList.map((v) => (v.corner === oldName ? { ...v, corner: name } : v)));
     if (hasStorage) { try { await window.storage.set("fc-log", JSON.stringify(nextLog)); } catch (e) { console.error(e); } }
   };
 
@@ -2178,7 +2289,7 @@ function FitnessCornerGenerator() {
       np[pp.id] = { v: 1, id: pp.id, src: "nparks-park-facilities", lat: pp.lat, lng: pp.lng, corner: name, confirmedAt: (prev && prev.confirmedAt) || now, updatedAt: now, equipment };
     }
     await writePlaces(np);
-    setPendingPlace(null); setPlaceName(""); setActiveCorner(name);
+    setPendingPlace(null); setPlaceName(""); setActiveCorner(name); setCornerVia("pick");
     return name;
   };
   const cancelPlace = () => {
@@ -2263,6 +2374,7 @@ function FitnessCornerGenerator() {
       if (!window.confirm(`Replace your current corners, history and levels with the backup from ${when}? (${keys.length} item${keys.length === 1 ? "" : "s"})`)) return;
       for (const k of keys) await window.storage.set(k, JSON.stringify(parsed.data[k]));
       if (!("fc-places" in parsed.data)) { try { await window.storage.delete("fc-places"); } catch { /* none */ } }
+      if (!("fc-visits" in parsed.data)) { try { await window.storage.delete("fc-visits"); } catch { /* rebuilt from the imported log */ } }
       window.location.reload();
     } catch (e) {
       window.alert("Couldn't import that file: " + e.message);
@@ -2270,6 +2382,11 @@ function FitnessCornerGenerator() {
   };
 
   const saveSession = async () => {
+    // Does this workout count for the corner? Linked by picking it (nearest /
+    // My corners / Go), or — if location is already allowed — by being there.
+    const cornerOk = !!(activeCorner && savedCorners[activeCorner]);
+    let via = cornerOk && cornerVia === "pick" ? "pick" : null;
+    if (cornerOk && !via && placeByCorner[activeCorner]) { const pl = placeByCorner[activeCorner]; if (await gpsNear(pl.lat, pl.lng)) via = "gps"; }
     const stations = session.map((s, i) => {
       if (s.missing) return null;
       const ex = picks.main[i];
@@ -2289,8 +2406,22 @@ function FitnessCornerGenerator() {
       rounds: format === "circuit" ? Array.from({ length: sets }).map((_, r) => done["r" + r] ?? null) : null,
       finisher: finisherToday,
     };
+    const completion = Math.round(entryCompletion(entry) * 100) / 100;
+    const counted = !!via && completion >= BADGE_CONFIG.minCompletion;
+    Object.assign(entry, { completion, counted, via, course: null });
     const nextLog = [entry, ...(log || [])].slice(0, 100);
     setLog(nextLog);
+    if (counted) {
+      // fc-visits is uncapped (the log keeps 100) so tiers never go backwards.
+      const nextVisits = [{ at: entry.date, corner: activeCorner, placeId: (placeByCorner[activeCorner] && placeByCorner[activeCorner].id) || null, completion, via, course: null }, ...visitList];
+      const before = cornerStats(visitList, savedCorners, placeByCorner); const after = cornerStats(nextVisits, savedCorners, placeByCorner);
+      const tb = before.tier(activeCorner), ta = after.tier(activeCorner);
+      const up = ta.idx > tb.idx; const exUp = after.explorer.idx > before.explorer.idx;
+      setCelebration({ corner: activeCorner, tier: ta, up, explorer: exUp ? after.explorer.tier.label : null, unique: after.unique });
+      await writeVisits(nextVisits);
+    } else {
+      setCelebration({ corner: activeCorner, notCounted: !cornerOk ? "corner" : !via ? "link" : "completion", completion });
+    }
     // Auto-level memory, applied ONCE per pattern per session (Core & grip has
     // two stations per pattern — they must not double-count):
     // 1. Manual "Harder + / − Easier" steps are kept: the level you finished at
@@ -2329,8 +2460,8 @@ function FitnessCornerGenerator() {
 
   const resetData = async () => {
     if (!window.confirm("Delete ALL saved corners, workout history and auto-levels on this device? This can't be undone — export a backup first if unsure.")) return;
-    setLog([]); setPatternMem({}); streakRef.current = {}; setSavedCorners({}); setHasLastSetup(false); setFinisherLog({ hang: [], jump: [] }); setFcTest({ history: [], offered: true }); setPlaces({}); setPendingPlace(null);
-    if (hasStorage) { for (const k of ["fc-log", "fc-levels", "fc-corners", "fc-places", "fc-settings", "fc-finisher", "fc-test", "fc-test-active"]) { try { await window.storage.delete(k); } catch {} } }
+    setLog([]); setPatternMem({}); streakRef.current = {}; setSavedCorners({}); setHasLastSetup(false); setFinisherLog({ hang: [], jump: [] }); setFcTest({ history: [], offered: true }); setPlaces({}); setPendingPlace(null); setVisits([]); setCelebration(null);
+    if (hasStorage) { for (const k of ["fc-log", "fc-levels", "fc-corners", "fc-places", "fc-visits", "fc-settings", "fc-finisher", "fc-test", "fc-test-active"]) { try { await window.storage.delete(k); } catch {} } }
   };
 
   const hitMuscles = useMemo(() => {
@@ -2377,7 +2508,8 @@ function FitnessCornerGenerator() {
   // "Go": load a corner (or keep the current setup) and jump straight to a fresh workout.
   const go = (corner, eqList) => {
     setPendingPlace(null); setFinder(null);
-    if (eqList) { setEq(eqList); setActiveCorner(corner); }
+    if (eqList) { setEq(eqList); setActiveCorner(corner); setCornerVia("pick"); }
+    else if (activeCorner && savedCorners[activeCorner]) setCornerVia("pick");
     regenerate(eqList ? corner : activeCorner);
     setStep(2);
   };
@@ -2572,8 +2704,8 @@ function FitnessCornerGenerator() {
               style={{
                 flex: 1, border: "none", padding: "10px 0", fontSize: 11.5, fontWeight: 700,
                 textTransform: "uppercase", letterSpacing: "0.03em",
-                background: step === i ? T.bg : T.greenDark,
-                color: step === i ? T.green : "rgba(255,255,255,0.6)",
+                background: step === i || (step === 5 && i === 0) ? T.bg : T.greenDark,
+                color: step === i || (step === 5 && i === 0) ? T.green : "rgba(255,255,255,0.6)",
                 borderRadius: "8px 8px 0 0", marginRight: i < 4 ? 4 : 0,
               }}
             >
@@ -2842,14 +2974,19 @@ function FitnessCornerGenerator() {
             </div>}
             {!pendingPlace && Object.keys(savedCorners).length > 0 && (
               <div style={{ marginBottom: 14 }}>
-                <div className="disp" style={{ fontWeight: 800, fontSize: 13, textTransform: "uppercase", letterSpacing: "0.1em", color: T.green, marginBottom: 6 }}>
-                  My corners — tap Go to start
+                <div style={{ display: "flex", alignItems: "baseline", marginBottom: 6 }}>
+                  <div className="disp" style={{ flex: 1, fontWeight: 800, fontSize: 13, textTransform: "uppercase", letterSpacing: "0.1em", color: T.green }}>
+                    My corners — tap Go to start
+                  </div>
+                  <button data-open-mycorners onClick={() => setStep(5)} className="disp" style={{ background: "transparent", border: "none", color: T.green, fontWeight: 800, fontSize: 13, textTransform: "uppercase", letterSpacing: "0.06em", padding: "4px 0", minHeight: 32 }}>
+                    Progress ›
+                  </button>
                 </div>
                 {Object.entries(savedCorners).map(([nm, eqList]) => (
                   <div key={nm} style={{ marginBottom: 6 }}>
                   <div data-corner={nm} style={{ display: "flex", gap: 6 }}>
                     <button
-                      onClick={() => { resetTweaks(); setEq(eqList); setActiveCorner(nm); }}
+                      onClick={() => { resetTweaks(); setEq(eqList); setActiveCorner(nm); setCornerVia("pick"); }}
                       className="disp"
                       style={{
                         flex: 1, textAlign: "left", minHeight: 44,
@@ -3039,6 +3176,24 @@ function FitnessCornerGenerator() {
         {/* ================= STEP 3: WORKOUT ================= */}
         {!testRun && step === 2 && (
           <>
+            {phase === "idle" && celebration && !celebration.notCounted && (celebration.up || celebration.explorer) && (
+              <div data-celebration className="panel-reveal" style={{ background: T.card, border: `2px solid ${celebration.tier.color}`, borderLeft: `8px solid ${celebration.tier.color}`, borderRadius: 10, padding: "12px 14px", marginBottom: 14 }}>
+                <div style={{ display: "flex", alignItems: "flex-start" }}>
+                  <div style={{ flex: 1 }}>
+                    {celebration.up && (
+                      <div className="disp" data-celebration-tier={celebration.tier.label} style={{ fontWeight: 800, fontSize: 19, textTransform: "uppercase", color: celebration.tier.color, lineHeight: 1.15 }}>
+                        🎉 {celebration.corner}: {celebration.tier.label}
+                      </div>
+                    )}
+                    <div style={{ fontSize: 13.5, color: T.ink, marginTop: 4, lineHeight: 1.45 }}>
+                      {celebration.up && <>{celebration.tier.count} counted workout{celebration.tier.count === 1 ? "" : "s"} here.{celebration.tier.next ? ` ${celebration.tier.next.min - celebration.tier.count} more to ${celebration.tier.next.label}.` : " Top tier."} </>}
+                      {celebration.explorer && <span data-celebration-explorer={celebration.explorer}>New profile level: <b>{celebration.explorer}</b> — {celebration.unique} corner{celebration.unique === 1 ? "" : "s"} trained at.</span>}
+                    </div>
+                  </div>
+                  <button onClick={() => setCelebration(null)} aria-label="Dismiss" style={{ background: "transparent", border: "none", color: T.steel, fontSize: 16, minWidth: 36, minHeight: 36 }}>✕</button>
+                </div>
+              </div>
+            )}
             {phase === "idle" && (
               <div style={{ marginBottom: 14 }}>
                 <button
@@ -3150,13 +3305,25 @@ function FitnessCornerGenerator() {
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
                   <select
                     value={activeCorner}
-                    onChange={(e) => setActiveCorner(e.target.value)}
+                    onChange={(e) => { setActiveCorner(e.target.value); setCornerVia("select"); }}
                     style={{ flex: 1, padding: "9px 10px", borderRadius: 8, border: `2px solid ${T.line}`, background: T.card, fontSize: 14, fontFamily: "inherit" }}
                   >
                     <option value="">Corner: unnamed</option>
                     {Object.keys(savedCorners).map((nm) => <option key={nm} value={nm}>{nm}</option>)}
                   </select>
                 </div>
+                {(() => {
+                  const live = format === "circuit"
+                    ? Array.from({ length: sets }).filter((_, r) => done["r" + r] != null).length / Math.max(1, sets)
+                    : (() => { const idx = session.map((s, i) => (s.missing ? null : i)).filter((x) => x != null); return idx.length ? idx.filter((i) => done[i] != null).length / idx.length : 0; })();
+                  const ok = activeCorner && savedCorners[activeCorner];
+                  const pct = Math.round(BADGE_CONFIG.minCompletion * 100);
+                  const msg = !ok ? "Not linked to a saved corner, so it won't count toward a corner. Start from Find nearest corner, My corners or Go next time."
+                    : cornerVia !== "pick" ? `Picked here, so it only counts toward ${activeCorner} if location is already on and you're there.`
+                    : live < BADGE_CONFIG.minCompletion ? `${Math.round(live * 100)}% ticked done — workouts count from ${pct}%. Saved to your log either way.`
+                    : `Counts toward ${activeCorner} (workout ${((stats.per[activeCorner] && stats.per[activeCorner].count) || 0) + 1} there).`;
+                  return <div data-count-preview={ok && cornerVia === "pick" && live >= BADGE_CONFIG.minCompletion ? "yes" : "no"} style={{ fontSize: 12.5, color: T.steel, marginTop: 8, lineHeight: 1.4 }}>{msg}</div>;
+                })()}
                 <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
                   <button onClick={saveSession} className="disp" style={{ flex: 2, background: T.green, color: "#fff", border: "none", borderRadius: 8, padding: "11px 0", fontWeight: 800, fontSize: 15, textTransform: "uppercase" }}>
                     Save session
@@ -3526,6 +3693,73 @@ function FitnessCornerGenerator() {
             ))}
           </>
         )}
+        {/* ================= MY CORNERS (step 5, reached from Equipment / Log) ================= */}
+        {!testRun && step === 5 && (
+          <div data-mycorners>
+            <button onClick={() => setStep(0)} className="disp" style={{ background: "transparent", border: "none", color: T.green, fontWeight: 800, fontSize: 13, textTransform: "uppercase", letterSpacing: "0.06em", padding: "0 0 10px" }}>‹ Equipment</button>
+            {(() => {
+              const ex = stats.explorer;
+              const exLabel = ex.tier ? ex.tier.label : "Not started";
+              const Stat = ({ k, v, sub }) => (
+                <div data-stat={k} style={{ flex: 1, minWidth: 0 }}>
+                  <div className="disp" style={{ fontWeight: 800, fontSize: 22, color: T.ink, lineHeight: 1 }}>{v}</div>
+                  <div style={{ fontSize: 11.5, color: T.steel, marginTop: 2, lineHeight: 1.25 }}>{sub}</div>
+                </div>
+              );
+              return (
+                <div data-profile style={{ background: T.card, border: `2px solid ${T.line}`, borderRadius: 10, padding: "12px 14px", marginBottom: 14 }}>
+                  <div className="disp" style={{ fontWeight: 800, fontSize: 13, textTransform: "uppercase", letterSpacing: "0.1em", color: T.steel }}>Your progress</div>
+                  <div className="disp" data-explorer={exLabel} style={{ fontWeight: 800, fontSize: 22, textTransform: "uppercase", color: T.green, marginTop: 2 }}>{exLabel}</div>
+                  <div style={{ fontSize: 12.5, color: T.steel }}>
+                    {ex.next ? `${stats.unique} corner${stats.unique === 1 ? "" : "s"} trained at · ${ex.next.min - stats.unique} more to ${ex.next.label}` : `${stats.unique} corners trained at · top level`}
+                  </div>
+                  <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+                    <Stat k="unique" v={stats.unique} sub="corners trained at" />
+                    <Stat k="verified" v={stats.verified} sub="corners verified" />
+                    <Stat k="total" v={stats.total} sub="counted workouts" />
+                    <Stat k="streak" v={stats.streak.current} sub={`week streak${stats.streak.best > stats.streak.current ? ` · best ${stats.streak.best}` : ""}`} />
+                  </div>
+                  <div style={{ fontSize: 11.5, color: T.steel, marginTop: 10, lineHeight: 1.4 }}>
+                    A workout counts when you start it from a saved corner (nearest, My corners or Go) and tick at least {Math.round(BADGE_CONFIG.minCompletion * 100)}% of it done. Streak = weeks with at least one; rest days never break it.
+                  </div>
+                </div>
+              );
+            })()}
+            {Object.keys(savedCorners).length === 0 ? (
+              <div style={{ fontSize: 14, color: T.steel, lineHeight: 1.5 }}>No saved corners yet. On the Equipment tab, tap <b>Find nearest corner</b> or save the equipment you see under a name.</div>
+            ) : (
+              Object.keys(savedCorners)
+                .sort((a, b) => (stats.per[b] ? stats.per[b].count : 0) - (stats.per[a] ? stats.per[a].count : 0) || a.localeCompare(b))
+                .map((nm) => {
+                  const tr = stats.tier(nm); const pl = placeByCorner[nm]; const sg = pl && SG_CORNER_BY_ID[pl.id];
+                  const last = stats.per[nm] && stats.per[nm].last;
+                  return (
+                    <div key={nm} data-mycorner={nm} data-tier={tr.label} style={{ background: T.card, border: `2px solid ${T.line}`, borderLeft: `6px solid ${tr.color}`, borderRadius: 10, padding: "10px 12px", marginBottom: 10 }}>
+                      <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div className="disp" style={{ fontWeight: 800, fontSize: 18, lineHeight: 1.1, textTransform: "uppercase", color: tr.idx >= 0 ? tr.color : T.ink }}>{nm}</div>
+                          <div data-tier-label style={{ fontSize: 12.5, color: tr.color, fontWeight: 600, marginTop: 2 }}>
+                            {tr.label} · {tr.count} workout{tr.count === 1 ? "" : "s"}{tr.next ? <span style={{ color: T.steel, fontWeight: 400 }}> · {tr.next.min - tr.count} to {tr.next.label.replace(/^Regular · /, "")}</span> : null}
+                          </div>
+                          {sg && <div style={{ fontSize: 12, color: T.steel, marginTop: 2 }}>{[sg.area, sg.pcn && `on ${sg.pcn}`].filter(Boolean).join(" · ")}</div>}
+                        </div>
+                        <button data-mycorner-go onClick={() => go(nm, savedCorners[nm])} className="disp" style={{ minWidth: 64, minHeight: 44, background: T.yellow, color: T.greenDark, border: "none", borderRadius: 10, fontWeight: 800, fontSize: 15, textTransform: "uppercase" }}>▶ Go</button>
+                        <button onClick={() => startEdit(nm)} aria-label={`Edit ${nm}`} style={{ minWidth: 40, minHeight: 44, background: T.card, color: T.green, border: `2px solid ${T.line}`, borderRadius: 10, fontSize: 15 }}>✎</button>
+                      </div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 8 }}>
+                        {(savedCorners[nm] || []).length === 0
+                          ? <span style={{ fontSize: 12, color: T.steel }}>Ground only</span>
+                          : savedCorners[nm].map((id) => <span key={id} style={{ fontSize: 11.5, color: T.ink, background: T.bg, border: `1px solid ${T.line}`, borderRadius: 999, padding: "2px 8px" }}>{(EQUIPMENT.find((q) => q.id === id) || { label: id }).label}</span>)}
+                      </div>
+                      <div style={{ fontSize: 12, color: T.steel, marginTop: 6 }}>
+                        {pl ? `Confirmed by you on ${fmtDay(pl.confirmedAt)}` : "Your own corner"}{last ? ` · last workout ${fmtDay(last)}` : ""}
+                      </div>
+                    </div>
+                  );
+                })
+            )}
+          </div>
+        )}
         {/* ================= STEP 5: LOG ================= */}
         {!testRun && step === 4 && (
           <>
@@ -3538,6 +3772,10 @@ function FitnessCornerGenerator() {
               <div style={{ color: T.steel, fontSize: 14 }}>Loading your history…</div>
             ) : (
               <>
+                <button data-log-mycorners onClick={() => setStep(5)} className="disp" style={{ width: "100%", marginBottom: 14, background: T.card, color: T.green, border: `2px solid ${T.green}`, borderRadius: 10, padding: "10px 14px", textAlign: "left", fontWeight: 800, fontSize: 15, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  My corners &amp; progress ›
+                  <span style={{ fontFamily: "'Barlow', system-ui, sans-serif", textTransform: "none", letterSpacing: 0, fontWeight: 500, fontSize: 12.5, color: T.steel, marginLeft: 6 }}>{stats.unique} corner{stats.unique === 1 ? "" : "s"} · {stats.total} counted · {stats.streak.current}-week streak</span>
+                </button>
                 {fcTest && (
                   <div data-test-card style={{ background: T.card, border: `2px solid ${T.green}`, borderRadius: 10, padding: "12px 14px", marginBottom: 14 }}>
                     <div className="disp" style={{ fontWeight: 800, fontSize: 15, textTransform: "uppercase", letterSpacing: "0.08em", color: T.green }}>
