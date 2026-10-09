@@ -277,12 +277,16 @@ KOT's 10 pull-ups. No age/sex input, no run. Full research + sources:
 see the design doc summarised in the `[fitness-test]` decision entry.
 
 - **Flow:** intro (first open: auto-offered, "Skip — I'll pick a level")
-  → PAR-Q+ 7 questions + "anything hurting?" + "unwell / too hot?" →
-  setup (bar? bench?) → 2–3 min warm-up → items → results → apply.
-  Any PAR-Q yes → no max tests, every pattern Beginner. Unwell/hot →
-  "test another day". Pain area → skip items loading it (pattern
-  Beginner). "I don't feel right" on every item → stop screen (995),
-  nothing saved. Stop rules shown on safety screen + every item.
+  → ONE safety screen (`TEST_SAFETY_LINE`: "This test pushes you close
+  to your max. If you have heart problems, chest pain, dizziness or an
+  injury, check with a doctor first." + a single "I feel good to go"
+  checkbox that enables Start, plus "Skip test") → setup (bar? bench?)
+  → 2–3 min warm-up → items → results → apply. No PAR-Q+, no sore-area
+  or unwell branches. "I don't feel right — stop the test" on every
+  item → stop screen (995), nothing saved. Stop rules (collapsed) on the
+  safety screen + every item. Old saved records with `medical` /
+  `skipped` / `pain` still score and display; a resumed run sitting in
+  the removed `unwell` / `medical` stage shows the new safety screen.
 - **Items** (gate → measure → optional extra; caps stop the effort):
   push (5 knee → full push-ups cap 30: <5 L1, 5–14 L2, 15–29 L3, 30 L4;
   pike check only at L2) · legs (10 squats → split squats/weaker leg cap
@@ -292,7 +296,14 @@ see the design doc summarised in the `[fitness-test]` decision entry.
   10–19 L2, 20 L3 — **test never gives hip L4**, Nordics) · plank (cap
   90 s: <30 L1, <90 L2, 90 L3, +5 hanging straight-leg raises L4) ·
   dead hang last (cap 90: <20 L1, <45 L2, <90 L3, 90 L4; skipped if the
-  10 s hang failed). No bar: calf raise instead (cap 25: <10, <25, 25 =
+  10 s hang failed). **Hang is hands-free** (`HangTimer`): Start → 3-2-1
+  lead-in → elapsed timer, WebAudio beep + `navigator.vibrate` (where
+  supported) every 10 s, big Stop, auto-stop at 90 → confirm a rough
+  band with 4 big buttons (`HANG_BANDS`: under 20 / 20–44 / 45–89 /
+  90 s+, pre-selected from the timer; "Already did it? Pick a rough
+  range" skips the timer). Stored as `raw.hang = { value: band midpoint
+  (10/32/67/90), band, approx: true, timed: secs|null }` — midpoints
+  land in the same cut-offs. Plank keeps the normal timer. No bar: calf raise instead (cap 25: <10, <25, 25 =
   L3 max), no pull items.
 - **Inferred:** verticalPush = push − 1 (pike check can lift L1→L2);
   horizontalPull = verticalPull; no bar → both pulls = min(push, 2),
@@ -307,7 +318,9 @@ see the design doc summarised in the `[fitness-test]` decision entry.
   when the last test had no bar and a bar is ticked (not within 3 h of
   that test; "Not now" persists), and always from the Log card. Merges
   into the latest record, updates only verticalPull/horizontalPull/grip.
-- The test's dead hang seeds `fc-finisher` (corner "Fitness test").
+- The test's dead hang seeds `fc-finisher` (corner "Fitness test"); a
+  banded hang is stored as the midpoint with `approx: true, band` and
+  shown as "20–44 s (approx.)".
 - **Access:** Equipment tab shows "Take the fitness test" until one is
   completed; Log tab card shows before/after raw numbers + levels,
   "Retest" and (if estimated) "Bar check"; 8-week (`RETEST_DAYS`)
@@ -761,6 +774,13 @@ Format: `[decision] what — why. (supersedes: none unless noted)`
   tables; Strand 2014 plank (PMID 25031677); CDC STEADI chair stand;
   Freckleton 2014 bridge (PMID 23918443); heel-raise review
   PMC9246404; dead hang has NO validated norms (cut-offs are judgment).
+- [test-minimal-friction] (owner 2026-10-09) The fitness test's safety
+  screen is one plain line + one "I feel good to go" checkbox + Skip
+  test; the dead hang is timed hands-free and confirmed as a rough band
+  (approximate by design — the grip cut-offs are judgment anyway). User
+  preference: minimal friction. Stop rules and the per-item "I don't
+  feel right" stop stay. (supersedes: the PAR-Q+ screen, sore-area skips
+  and unwell/hot branch in [fitness-test]; precise hang-seconds entry.)
 - [lever-demote-only] Lever-machine stations can lower a pattern's
   memory but never raise it ("too easy" ignored, Harder+ not folded) —
   memory is per pattern, and a light fixed-resistance pulldown said

@@ -1248,19 +1248,19 @@ const LEVER_IDS = ["chestPress", "latPulldown", "shoulderPressM", "legPressM"];
 const isLever = (ex) => !!ex && ex.req.some((r) => LEVER_IDS.includes(r));
 const RETEST_DAYS = 56; // 8 weeks
 const DAY_MS = 86400000;
-// PAR-Q+ (2025) general health questions, plain-language.
-const PARQ = [
-  "Has a doctor ever said you have a heart condition or high blood pressure?",
-  "Do you get chest pain at rest, in daily life, or when you're active?",
-  "In the last 12 months, have you lost your balance from dizziness, or passed out? (Answer no if it was only from over-breathing during hard exercise.)",
-  "Have you been diagnosed with any other long-term (chronic) medical condition?",
-  "Are you taking prescribed medicine for a long-term condition?",
-  "Do you have (or had in the last 12 months) a bone, joint or muscle problem that being more active could make worse?",
-  "Has a doctor ever said you should only exercise under medical supervision?",
+// One-screen safety check (owner 2026-10-09: minimal friction — replaces
+// the PAR-Q+ questionnaire and the sore-area / unwell branches).
+const TEST_SAFETY_LINE = "This test pushes you close to your max. If you have heart problems, chest pain, dizziness or an injury, check with a doctor first.";
+// Dead hang is self-timed hands-free, then confirmed as a rough band.
+// `mid` feeds the existing grip cut-offs (20 / 45 / 90 s) and the finisher record.
+const HANG_BANDS = [
+  { id: "lt20", label: "Under 20 s", mid: 10, max: 19 },
+  { id: "20-44", label: "20–44 s", mid: 32, max: 44 },
+  { id: "45-89", label: "45–89 s", mid: 67, max: 89 },
+  { id: "90+", label: "90 s+", mid: 90, max: Infinity },
 ];
-const PAIN_AREAS = [["shoulder", "Shoulder"], ["elbow", "Elbow / wrist"], ["knee", "Knee"], ["back", "Back"]];
-// Sore today → skip the items that load that area (pattern starts at Beginner).
-const TEST_PAIN_SKIP = { push: ["shoulder", "elbow"], legs: ["knee"], pull: ["shoulder", "elbow"], bridge: ["back"], plank: ["shoulder", "back"], hang: ["shoulder", "elbow"], calf: [] };
+const hangBand = (secs) => HANG_BANDS.find((b) => secs <= b.max);
+const buzz = (ms) => { try { if (navigator.vibrate) navigator.vibrate(ms); } catch { /* iOS: no vibrate */ } };
 const STOP_RULES = [
   "Chest pain or pressure, dizziness, unusual breathlessness or nausea → stop the whole test and rest. If chest pain doesn't ease quickly, call 995.",
   "Sharp or joint pain → stop that item. Muscle burn is fine; sharp pain is not.",
@@ -1310,9 +1310,9 @@ const TEST_ITEMS = {
   },
   hang: {
     title: "Max dead hang", seeds: "Grip / athletic · saves your finisher record",
-    how: "Grab the bar, feet off the ground, arms straight. Start the timer when your feet leave the ground.",
+    how: "Tap Start, put the phone down, and grab the bar during the 3-2-1. The timer beeps every 10 s so you don't need to look — tap Stop (or ask a friend) when you drop.",
     standard: "Arms straight, feet off the ground. It ends when your grip opens.",
-    measure: { kind: "time", label: "Dead hang", cap: 90, unit: "s" },
+    measure: { kind: "hang", label: "Dead hang", cap: 90, unit: "s" },
   },
   calf: {
     title: "Single-leg calf raise", seeds: "Grip / athletic (no bar today)",
@@ -1404,7 +1404,8 @@ function scoreTest(ts) {
     else if (sk.hang) set("gripAthletic", 1, sore, "skipped");
     else {
       const v = hg.value || 0;
-      set("gripAthletic", v >= 90 ? 4 : v >= 45 ? 3 : v >= 20 ? 2 : 1, `${v}${v >= 90 ? "+" : ""} s dead hang.`);
+      const band = hg.band && HANG_BANDS.find((b) => b.id === hg.band);
+      set("gripAthletic", v >= 90 ? 4 : v >= 45 ? 3 : v >= 20 ? 2 : 1, band ? `Dead hang ${band.label} (approx.).` : `${v}${v >= 90 ? "+" : ""} s dead hang.`);
     }
   } else {
     const cf = raw.calf || {};
@@ -1434,7 +1435,7 @@ function testMetrics(rec) {
     ["Single-leg bridge / leg", fmt("bridge", (r) => (r.gate === false ? "< 10 two-leg" : String(r.value)))],
     ["Plank", fmt("plank", (r) => r.value + " s" + (r.extra === true ? " + leg raises ✓" : ""))],
   ];
-  if (rec.bar) rows.push(["Dead hang", raw.pull && raw.pull.gate === false ? "< 10 s" : fmt("hang", (r) => r.value + " s")]);
+  if (rec.bar) rows.push(["Dead hang", raw.pull && raw.pull.gate === false ? "< 10 s" : fmt("hang", (r) => { const b = r.band && HANG_BANDS.find((x) => x.id === r.band); return b ? `~${b.label}` : r.value + " s"; })]);
   else rows.push(["Calf raises / leg", fmt("calf", (r) => String(r.value))]);
   return rows;
 }
@@ -1445,7 +1446,7 @@ function newTestRun(mode, eqList = null) {
   const bar = eqList ? eqList.includes("highBar") || eqList.includes("monkeyBars") : null;
   const bench = eqList ? eqList.includes("bench") || eqList.includes("step") : null;
   return {
-    v: 1, mode, stage: "intro", parq: null, pain: null, unwell: null, medical: false,
+    v: 1, mode, stage: "intro", ready: false, medical: false,
     bar: mode === "bar" ? true : bar, bench, items: mode === "bar" ? testItemOrder("bar", true) : [],
     idx: -1, sub: null, raw: {}, skipped: {}, restUntil: null, chosen: null, startedAt: Date.now(),
   };
@@ -1550,6 +1551,71 @@ function TestTimer({ cap, onSave, beep, onStart }) {
   );
 }
 
+// Hands-free dead hang: Start → 3-2-1 → elapsed timer (beep + vibrate every
+// 10 s) → Stop → confirm a rough band (pre-selected from the timer).
+function HangTimer({ cap, onSave, beep, onStart }) {
+  const [phase, setPhase] = useState("ready"); // ready | lead | run | band
+  const [t0, setT0] = useState(0);
+  const [now, setNow] = useState(0);
+  const [secs, setSecs] = useState(null); // timed result, null = not timed
+  const [band, setBand] = useState(null);
+  useEffect(() => {
+    if (phase !== "lead" && phase !== "run") return;
+    const id = setInterval(() => setNow(Date.now()), 200);
+    return () => clearInterval(id);
+  }, [phase]);
+  const leadLeft = phase === "lead" ? Math.max(0, 3 - Math.floor((now - t0) / 1000)) : 0;
+  const el = phase === "run" ? Math.min(cap, Math.floor((now - t0) / 1000)) : 0;
+  const lastCue = useRef(-1);
+  useEffect(() => {
+    if (phase === "lead") {
+      if (leadLeft !== lastCue.current) { lastCue.current = leadLeft; if (leadLeft > 0) { beep && beep(1); buzz(60); } }
+      if (leadLeft === 0) { const s = Date.now(); setT0(s); setNow(s); lastCue.current = 0; setPhase("run"); beep && beep(2); buzz(200); }
+    } else if (phase === "run") {
+      if (el >= cap) { setSecs(cap); setBand(hangBand(cap).id); setPhase("band"); beep && beep(2); buzz([200, 100, 200]); return; }
+      if (el > 0 && el % 10 === 0 && el !== lastCue.current) { lastCue.current = el; beep && beep(1); buzz(150); }
+    }
+  }, [phase, leadLeft, el, cap, beep]);
+  const stop = () => { setSecs(el); setBand(hangBand(el).id); setPhase("band"); };
+  const big = { width: "100%", marginTop: 10, fontSize: 22, minHeight: 72 };
+  if (phase === "ready") {
+    return (
+      <div data-hang="ready">
+        <button onClick={() => { if (onStart) onStart(); const s = Date.now(); lastCue.current = -1; setT0(s); setNow(s); setPhase("lead"); }} data-test-start className="disp" style={tBtn(T.yellow, T.greenDark, big)}>▶ Start</button>
+        <div style={{ textAlign: "center", fontSize: 12.5, color: T.steel, marginTop: 6 }}>3-2-1 to get on the bar · beep{typeof navigator !== "undefined" && navigator.vibrate ? " + buzz" : ""} every 10 s · stops itself at {cap} s</div>
+        <button onClick={() => { setSecs(null); setBand(null); setPhase("band"); }} data-hang-notimer style={{ display: "block", margin: "8px auto 0", background: "transparent", border: "none", color: T.green, fontSize: 13, textDecoration: "underline" }}>Already did it? Pick a rough range</button>
+      </div>
+    );
+  }
+  if (phase === "lead" || phase === "run") {
+    return (
+      <div data-hang={phase}>
+        <div className="disp" data-test-timer style={{ textAlign: "center", fontSize: phase === "lead" ? 88 : 72, fontWeight: 800, color: phase === "lead" ? T.orange : T.green, marginTop: 4, lineHeight: 1.05 }}>
+          {phase === "lead" ? leadLeft : `${Math.floor(el / 60)}:${String(el % 60).padStart(2, "0")}`}
+        </div>
+        <div style={{ textAlign: "center", fontSize: 13, color: T.steel }}>{phase === "lead" ? "Get on the bar…" : "Hang! Beeps every 10 s."}</div>
+        <button onClick={phase === "lead" ? () => setPhase("ready") : stop} data-test-stop className="disp" style={tBtn(T.orange, "#fff", { ...big, minHeight: 96, fontSize: 28 })}>■ {phase === "lead" ? "Cancel" : "Stop"}</button>
+      </div>
+    );
+  }
+  const chosen = band && HANG_BANDS.find((b) => b.id === band);
+  return (
+    <div data-hang="band">
+      <div style={{ fontSize: 14, color: T.ink, marginTop: 4 }}>{secs != null ? <>Timer: <b>{secs} s</b>. Roughly right?</> : "About how long did you hang?"}</div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
+        {HANG_BANDS.map((b) => (
+          <button key={b.id} data-hang-band={b.id} data-on={band === b.id ? "1" : "0"} onClick={() => setBand(b.id)} className="disp"
+            style={{ minHeight: 60, borderRadius: 10, fontWeight: 800, fontSize: 18, border: `2px solid ${band === b.id ? T.green : T.line}`, background: band === b.id ? T.green : T.card, color: band === b.id ? "#fff" : T.ink }}>{b.label}</button>
+        ))}
+      </div>
+      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+        <button onClick={() => { setSecs(null); setBand(null); setPhase("ready"); }} className="disp" style={tBtn(T.card, T.green, { flex: 1, border: `2px solid ${T.green}` })}>Redo</button>
+        <button disabled={!chosen} onClick={() => onSave({ value: chosen.mid, band: chosen.id, approx: true, timed: secs })} data-test-save className="disp" style={tBtn(chosen ? T.green : T.line, "#fff", { flex: 2 })}>{chosen ? `Save — ${chosen.label}` : "Pick a range"}</button>
+      </div>
+    </div>
+  );
+}
+
 // The whole test flow. State `ts` is persisted to fc-test-active on every
 // change, so a reload (or iOS killing the tab) resumes at the same step.
 // A running hold timer is NOT resumed — that item simply restarts.
@@ -1587,7 +1653,6 @@ function FitnessTest({ initial, hasStorage, isFirst, currentEff, keepEff, onSkip
     const sk = { ...skipped };
     while (i < items.length) {
       const nid = items[i];
-      if ((TEST_PAIN_SKIP[nid] || []).some((a) => (ts.pain || []).includes(a))) { sk[nid] = true; i++; continue; }
       if (nid === "hang" && raw.pull && raw.pull.gate === false) { i++; continue; } // already failed the 10 s hang
       break;
     }
@@ -1653,87 +1718,23 @@ function FitnessTest({ initial, hasStorage, isFirst, currentEff, keepEff, onSkip
     );
   }
 
-  // ---------- safety screen (PAR-Q+) ----------
-  if (ts.stage === "safety") {
-    const parq = ts.parq || PARQ.map(() => null);
-    const pain = ts.pain; // null = unanswered, [] = nothing hurts
-    const answered = parq.every((a) => a !== null) && pain !== null && ts.unwell != null;
-    const togglePain = (a) => up({ pain: (pain || []).includes(a) ? pain.filter((x) => x !== a) : [...(pain || []), a] });
+  // ---------- safety: one line + one checkbox (old resumed runs in the
+  // removed "unwell" / "medical" stages land here too) ----------
+  if (ts.stage === "safety" || ts.stage === "unwell" || ts.stage === "medical") {
+    const ok = !!ts.ready;
     return (
       <div data-test-stage="safety">
-        {top("Safety check")}
+        {top("Before you start")}
         <div style={card}>
-          <div className="disp" style={eyebrow}>Before you start · PAR-Q+ health questions</div>
-          <p style={{ ...p, fontSize: 13.5, color: T.steel }}>Answer each one honestly. Nothing here is stored except whether you answered yes.</p>
-          {PARQ.map((q, i) => (
-            <div key={i} style={{ marginTop: 12 }}>
-              <div style={{ fontSize: 14, color: T.ink, lineHeight: 1.4 }}>{i + 1}. {q}</div>
-              <YesNo testid={"parq" + i} value={parq[i]} onChange={(v) => up({ parq: parq.map((x, j) => (j === i ? v : x)) })} />
-            </div>
-          ))}
-          <div style={{ marginTop: 16, fontSize: 14, color: T.ink, fontWeight: 600 }}>Anything hurting today?</div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }} data-pain>
-            {PAIN_AREAS.map(([a, lbl]) => {
-              const on = (pain || []).includes(a);
-              return <button key={a} data-pain-area={a} onClick={() => togglePain(a)} className="disp" style={{ minHeight: 40, padding: "0 12px", borderRadius: 999, fontWeight: 700, fontSize: 13, textTransform: "uppercase", border: `2px solid ${on ? T.orange : T.line}`, background: on ? T.orange : T.card, color: on ? "#fff" : T.ink }}>{lbl}</button>;
-            })}
-            <button data-pain-area="none" onClick={() => up({ pain: [] })} className="disp" style={{ minHeight: 40, padding: "0 12px", borderRadius: 999, fontWeight: 700, fontSize: 13, textTransform: "uppercase", border: `2px solid ${pain && pain.length === 0 ? T.green : T.line}`, background: pain && pain.length === 0 ? T.green : T.card, color: pain && pain.length === 0 ? "#fff" : T.ink }}>Nothing hurts</button>
-          </div>
-          <div style={{ marginTop: 16, fontSize: 14, color: T.ink, fontWeight: 600 }}>Feeling unwell today, or is it too hot?</div>
-          <YesNo testid="unwell" value={ts.unwell} onChange={(v) => up({ unwell: v })} />
-          <StopRules />
+          <p data-safety-line style={{ ...p, fontSize: 15.5, marginTop: 0 }}>{TEST_SAFETY_LINE}</p>
+          <label data-test-ready style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 12, padding: "12px 12px", borderRadius: 10, border: `2px solid ${ok ? T.green : T.line}`, background: ok ? "#EAF3EC" : T.card, cursor: "pointer" }}>
+            <input type="checkbox" checked={ok} onChange={(e) => up({ ready: e.target.checked })} style={{ width: 24, height: 24, accentColor: T.green, margin: 0 }} />
+            <span className="disp" style={{ fontWeight: 800, fontSize: 17, textTransform: "uppercase", color: T.ink }}>I feel good to go</span>
+          </label>
+          <StopRules compact />
         </div>
-        <button
-          disabled={!answered}
-          data-test-safety-next
-          onClick={() => {
-            if (ts.unwell) return up({ stage: "unwell" });
-            if (parq.some(Boolean)) return up({ stage: "medical" });
-            up({ stage: isBar ? "warmup" : "equip" });
-          }}
-          className="disp"
-          style={tBtn(answered ? T.yellow : T.line, T.greenDark, { width: "100%", fontSize: 17 })}
-        >
-          {answered ? "Continue" : "Answer every question to continue"}
-        </button>
-      </div>
-    );
-  }
-
-  if (ts.stage === "unwell") {
-    return (
-      <div data-test-stage="unwell">
-        {top("Not today")}
-        <div style={card}>
-          <h2 className="disp" style={h2}>Test another day</h2>
-          <p style={p}>A max-effort test on a day you feel unwell or in the midday heat gives the wrong numbers and adds risk. Pick a cooler time when you feel good — the test will be waiting on the Equipment tab.</p>
-        </div>
-        <button onClick={onCancel} className="disp" style={tBtn(T.green, "#fff", { width: "100%" })}>OK</button>
-      </div>
-    );
-  }
-
-  if (ts.stage === "medical") {
-    return (
-      <div data-test-stage="medical">
-        {top("Safety check")}
-        <div style={card}>
-          <h2 className="disp" style={h2}>Check with a doctor first</h2>
-          <p style={p}>You answered yes to at least one health question. That's what PAR-Q+ is for: talk to a doctor or a qualified exercise professional before doing max-effort tests.</p>
-          <p style={p}>You can still train. We'll skip the max tests and start every pattern at Beginner. When a workout feels too easy, rate it — the app moves you up from there.</p>
-        </div>
-        <button
-          onClick={() => {
-            const sc = scoreTest({ ...ts, medical: true });
-            up({ medical: true, stage: "results", chosen: defaultChosen(sc.levels) });
-          }}
-          data-test-medical-next
-          className="disp"
-          style={tBtn(T.yellow, T.greenDark, { width: "100%" })}
-        >
-          See my starting levels
-        </button>
-        <button onClick={onCancel} className="disp" style={tBtn("transparent", T.steel, { width: "100%", marginTop: 8, border: `2px solid ${T.line}` })}>Cancel</button>
+        <button disabled={!ok} data-test-safety-next onClick={() => up({ stage: isBar ? "warmup" : "equip" })} className="disp" style={tBtn(ok ? T.yellow : T.line, T.greenDark, { width: "100%", fontSize: 18 })}>▶ Start</button>
+        <button onClick={isFirst && !isBar ? onSkip : onCancel} data-test-safety-skip className="disp" style={tBtn("transparent", T.steel, { width: "100%", marginTop: 8, border: `2px solid ${T.line}` })}>Skip test</button>
       </div>
     );
   }
@@ -1821,7 +1822,9 @@ function FitnessTest({ initial, hasStorage, isFirst, currentEff, keepEff, onSkip
           {ts.sub === "measure" && (
             <>
               <div style={{ fontSize: 15, fontWeight: 600 }}>{item.measure.label}</div>
-              {item.measure.kind === "count" ? (
+              {item.measure.kind === "hang" ? (
+                <HangTimer key={id} cap={item.measure.cap} beep={beep} onStart={unlockAudio} onSave={(o) => saveRaw(o, true)} />
+              ) : item.measure.kind === "count" ? (
                 <TestCounter key={id} cap={item.measure.cap} unit={item.measure.unit} onSave={(v) => {
                   const ex = item.extra ? item.extra(v, ts) : null;
                   if (ex) up({ sub: "extra", raw: { ...ts.raw, [id]: { ...r, value: v } } });
@@ -1874,7 +1877,7 @@ function FitnessTest({ initial, hasStorage, isFirst, currentEff, keepEff, onSkip
     const flagTxt = { inferred: "inferred", estimated: "estimated", skipped: "skipped", capped: "test cap", medical: "safety" };
     const build = (apply) => ({
       date: new Date().toISOString(), mode: ts.mode, medical: !!ts.medical, bar: isBar ? true : !!ts.bar, bench: !!ts.bench,
-      pain: ts.pain || [], raw: ts.raw || {}, skipped: ts.skipped || {}, levels: sc.levels, reasons: sc.reasons, flags: sc.flags,
+      raw: ts.raw || {}, skipped: ts.skipped || {}, levels: sc.levels, reasons: sc.reasons, flags: sc.flags,
       chosen, applied: apply,
     });
     return (
@@ -2101,10 +2104,10 @@ function FitnessCornerGenerator() {
   // ---- Rest countdown: tap after a set/round; length follows the format ----
   const restLen = format === "straight" ? (level >= 3 ? 120 : 90) : 75;
   const restLeft = restEnd ? Math.max(0, Math.ceil((restEnd - now) / 1000)) : 0;
-  const beep = () => {
+  const beep = (n = 2) => {
     try {
       const ctx = audioRef.current; if (!ctx) return;
-      [0, 0.3].forEach((t) => {
+      [0, 0.3].slice(0, n).forEach((t) => {
         const o = ctx.createOscillator(); const g = ctx.createGain();
         o.frequency.value = 880; o.connect(g); g.connect(ctx.destination);
         g.gain.setValueAtTime(0.25, ctx.currentTime + t); g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.2);
@@ -2616,9 +2619,12 @@ function FitnessCornerGenerator() {
       if (hasStorage) { try { await window.storage.set("fc-levels", JSON.stringify({ mem, streak })); } catch (e) { console.error(e); } }
     }
     // The test's dead hang is a real max effort — seed the finisher record.
-    const hv = rec.raw && rec.raw.hang && !(rec.skipped && rec.skipped.hang) ? rec.raw.hang.value : 0;
+    const hr = rec.raw && rec.raw.hang && !(rec.skipped && rec.skipped.hang) ? rec.raw.hang : null;
+    const hv = hr ? hr.value : 0;
     if (!rec.medical && hv > 0) {
-      const next = { ...finisherLog, hang: [{ date: rec.date, value: hv, corner: "Fitness test" }, ...(finisherLog.hang || [])].slice(0, 50) };
+      // Banded test hang → stored as the band midpoint, flagged approximate.
+      const fin = { date: rec.date, value: hv, corner: "Fitness test", ...(hr.band ? { approx: true, band: hr.band } : {}) };
+      const next = { ...finisherLog, hang: [fin, ...(finisherLog.hang || [])].slice(0, 50) };
       setFinisherLog(next);
       if (hasStorage) { try { await window.storage.set("fc-finisher", JSON.stringify(next)); } catch (e) { console.error(e); } }
     }
@@ -3536,12 +3542,13 @@ function FitnessCornerGenerator() {
                 const recordedToday = finisherToday && finisherToday.type === finType;
                 const hist = recordedToday ? all.slice(1) : all; // history before today
                 const unit = finType === "hang" ? "s" : " cm";
-                const last = hist[0]; const best = hist.reduce((m, x) => Math.max(m, x.value), 0);
+                const last = hist[0]; const bestRec = hist.reduce((m, x) => (!m || x.value > m.value ? x : m), null); const best = bestRec ? bestRec.value : 0;
+                const show = (x) => { const b = x.approx && x.band && HANG_BANDS.find((h) => h.id === x.band); return b ? `${b.label} (approx.)` : `${x.value}${unit}`; };
                 const fmtD = (d) => new Date(d).toLocaleDateString("en-SG", { day: "numeric", month: "short" });
                 return (
                   <>
                     <div data-finisher-last style={{ fontSize: 13, color: T.ink, marginTop: 6 }}>
-                      {last ? <>Last time: <b>{last.value}{unit}</b> ({fmtD(last.date)}) · Best: <b>{best}{unit}</b></> : "No result yet — set your first benchmark."}
+                      {last ? <>Last time: <b>{show(last)}</b> ({fmtD(last.date)}) · Best: <b>{show(bestRec)}</b></> : "No result yet — set your first benchmark."}
                     </div>
                     {recordedToday ? (
                       <div className="disp done-check-pop" style={{ color: T.green, fontWeight: 800, fontSize: 14, marginTop: 6 }}>
