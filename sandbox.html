@@ -586,6 +586,30 @@ function weekKey(when) {
   d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
+// BEGIN buildWeekGrid
+// Shift to SGT, then use UTC calendar arithmetic regardless of host timezone.
+function buildWeekGrid(log, now) {
+  const dayMs = 86400000, offset = 8 * 3600000;
+  const nowMs = now instanceof Date ? now.getTime() : now;
+  if (typeof nowMs !== "number" || !Number.isFinite(nowMs)) throw new RangeError("Invalid now");
+  const today = Math.floor((nowMs + offset) / dayMs) * dayMs;
+  const monday = today - ((new Date(today).getUTCDay() + 6) % 7) * dayMs;
+  const start = monday - 7 * 7 * dayMs;
+  const rows = Array.from({ length: 8 }, (_, w) => Array.from({ length: 7 }, (_, d) => {
+    const at = start + (w * 7 + d) * dayMs;
+    return { dateKey: new Date(at).toISOString().slice(0, 10), isToday: at === today, isFuture: at > today, sessions: [] };
+  }));
+  const sessions = (Array.isArray(log) ? log : []).filter((en) => en && typeof en.date === "string")
+    .map((en) => ({ en, at: Date.parse(en.date) }))
+    .filter(({ at }) => Number.isFinite(at) && at <= nowMs && at + offset >= start)
+    .sort((a, b) => a.at - b.at);
+  sessions.forEach(({ en, at }) => {
+    const idx = Math.floor((at + offset - start) / dayMs);
+    if (idx < 56) rows[Math.floor(idx / 7)][idx % 7].sessions.push(en);
+  });
+  return rows;
+}
+// END buildWeekGrid
 function weeklyStreak(visits, nowMs = Date.now()) {
   const weeks = new Set(visits.map((v) => weekKey(v.at)));
   const stepBack = (wk) => { const [y, m, dd] = wk.split("-").map(Number); return weekKey(new Date(y, m - 1, dd - 7, 12).getTime()); };
@@ -1955,6 +1979,56 @@ function FitnessTest({ initial, hasStorage, isFirst, currentEff, keepEff, onSkip
     );
   }
   return null;
+}
+
+function WeekStrip({ log }) {
+  const [selectedDate, setSelectedDate] = useState(null);
+  const weeks = buildWeekGrid(log, Date.now());
+  const selectedDay = weeks.flat().find((day) => day.dateKey === selectedDate && day.sessions.length > 0);
+  const calendarDate = (dateKey) => new Date(`${dateKey}T12:00:00+08:00`);
+  const dateLabel = (dateKey) => calendarDate(dateKey).toLocaleDateString("en-SG", { timeZone: "Asia/Singapore", day: "numeric", month: "long", year: "numeric" });
+  const columns = "42px repeat(7, minmax(0, 1fr))";
+  return (
+    <div data-week-strip style={{ background: T.card, border: `2px solid ${T.green}`, borderRadius: 10, padding: "12px 10px", marginBottom: 14 }}>
+      <div className="disp" style={{ fontWeight: 800, fontSize: 15, textTransform: "uppercase", letterSpacing: "0.08em", color: T.green }}>Last 8 weeks</div>
+      <div style={{ fontSize: 12.5, color: T.steel, marginTop: 2, marginBottom: 8 }}>Filled dots are saved workouts. Tap one for details.</div>
+      <div aria-hidden="true" style={{ display: "grid", gridTemplateColumns: columns, alignItems: "center", fontSize: 11, color: T.steel, textAlign: "center" }}>
+        <span style={{ textAlign: "left" }}>Week of</span>
+        {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => <span key={day}>{day}</span>)}
+      </div>
+      {weeks.map((week) => (
+        <div key={week[0].dateKey} style={{ display: "grid", gridTemplateColumns: columns, alignItems: "center" }}>
+          <span style={{ fontSize: 11, color: T.steel, lineHeight: 1.3 }}>
+            {calendarDate(week[0].dateKey).toLocaleDateString("en-SG", { timeZone: "Asia/Singapore", day: "numeric", month: "short" })}
+          </span>
+          {week.map((day) => {
+            const count = day.sessions.length, expanded = selectedDay && selectedDay.dateKey === day.dateKey;
+            return (
+              <button key={day.dateKey} type="button" data-date={day.dateKey}
+                aria-label={`${dateLabel(day.dateKey)}, ${count} workout${count === 1 ? "" : "s"}${day.isToday ? ", today" : ""}`}
+                aria-expanded={count > 0 ? !!expanded : undefined} aria-controls={count > 0 ? "week-strip-sessions" : undefined}
+                disabled={count === 0} onClick={() => setSelectedDate(expanded ? null : day.dateKey)}
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", minWidth: 0, minHeight: 44, padding: 0, border: "none", borderRadius: 6, background: expanded ? T.bg : "transparent", cursor: count > 0 ? "pointer" : "default" }}>
+                <span aria-hidden="true" style={{ width: 12, height: 12, boxSizing: "border-box", borderRadius: "50%", background: count > 0 ? T.green : "transparent", border: `2px solid ${day.isFuture ? T.line : count > 0 ? T.green : T.regionOff}`, outline: day.isToday ? `2px solid ${T.green}` : "none", outlineOffset: 3 }} />
+              </button>
+            );
+          })}
+        </div>
+      ))}
+      <div style={{ fontSize: 11.5, color: T.steel, marginTop: 4 }}>Outlined dot: today · Singapore time</div>
+      {selectedDay && (
+        <div id="week-strip-sessions" style={{ borderTop: `1px solid ${T.line}`, marginTop: 10, paddingTop: 10, overflowWrap: "anywhere" }}>
+          <div className="disp" style={{ fontWeight: 800, fontSize: 15, color: T.green }}>{dateLabel(selectedDay.dateKey)}</div>
+          {selectedDay.sessions.map((en, i) => (
+            <div key={`${en.date}-${i}`} style={{ marginTop: 8, fontSize: 13, lineHeight: 1.5 }}>
+              <div style={{ fontWeight: 700, color: T.ink }}>{en.corner}</div>
+              <div style={{ color: T.steel }}>{en.focus} · {new Date(en.date).toLocaleTimeString("en-SG", { timeZone: "Asia/Singapore", hour: "numeric", minute: "2-digit" })} SGT</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function FitnessCornerGenerator() {
@@ -3900,6 +3974,7 @@ function FitnessCornerGenerator() {
               <div style={{ color: T.steel, fontSize: 14 }}>Loading your history…</div>
             ) : (
               <>
+                <WeekStrip log={log} />
                 <button data-log-mycorners onClick={() => setStep(5)} className="disp" style={{ width: "100%", marginBottom: 14, background: T.card, color: T.green, border: `2px solid ${T.green}`, borderRadius: 10, padding: "10px 14px", textAlign: "left", fontWeight: 800, fontSize: 15, textTransform: "uppercase", letterSpacing: "0.05em" }}>
                   My corners &amp; progress ›
                   <span style={{ fontFamily: "'Barlow', system-ui, sans-serif", textTransform: "none", letterSpacing: 0, fontWeight: 500, fontSize: 12.5, color: T.steel, marginLeft: 6 }}>{stats.unique} corner{stats.unique === 1 ? "" : "s"} · {stats.total} counted · {stats.streak.current}-week streak</span>
