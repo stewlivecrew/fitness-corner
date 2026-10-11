@@ -1942,45 +1942,57 @@ function FitnessTest({ initial, hasStorage, isFirst, currentEff, keepEff, onSkip
 function WeekStrip({ log }) {
   const [selectedDate, setSelectedDate] = useState(null);
   const weeks = buildWeekGrid(log, Date.now());
-  const selectedDay = weeks.flat().find((day) => day.dateKey === selectedDate && day.sessions.length > 0);
+  const days = weeks.flat();
+  const selectedDay = days.find((day) => day.dateKey === selectedDate && day.sessions.length > 0);
+  const total = days.reduce((n, day) => n + day.sessions.length, 0);
+  const active = days.filter((day) => day.sessions.length > 0).length;
   const calendarDate = (dateKey) => new Date(`${dateKey}T12:00:00+08:00`);
-  const dateLabel = (dateKey) => calendarDate(dateKey).toLocaleDateString("en-SG", { timeZone: "Asia/Singapore", day: "numeric", month: "long", year: "numeric" });
-  const columns = "42px repeat(7, minmax(0, 1fr))";
+  const fmtDate = (dateKey, opts) => calendarDate(dateKey).toLocaleDateString("en-SG", { timeZone: "Asia/Singapore", ...opts });
+  const columns = "44px repeat(7, minmax(0, 1fr))";
   return (
-    <div data-week-strip style={{ background: T.card, border: `2px solid ${T.green}`, borderRadius: 10, padding: "12px 10px", marginBottom: 14 }}>
-      <div className="disp" style={{ fontWeight: 800, fontSize: 15, textTransform: "uppercase", letterSpacing: "0.08em", color: T.green }}>Last 8 weeks</div>
-      <div style={{ fontSize: 12.5, color: T.steel, marginTop: 2, marginBottom: 8 }}>Filled dots are saved workouts. Tap one for details.</div>
-      <div aria-hidden="true" style={{ display: "grid", gridTemplateColumns: columns, alignItems: "center", fontSize: 11, color: T.steel, textAlign: "center" }}>
-        <span style={{ textAlign: "left" }}>Week of</span>
-        {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => <span key={day}>{day}</span>)}
+    <div data-week-strip style={{ background: T.card, border: `2px solid ${T.green}`, borderRadius: 10, padding: "12px 10px 10px", marginBottom: 14, scrollMarginTop: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, marginBottom: 4 }}>
+        <div className="disp" style={{ fontWeight: 800, fontSize: 15, textTransform: "uppercase", letterSpacing: "0.08em", color: T.green }}>Last 8 weeks</div>
+        <div data-week-total style={{ fontSize: 12.5, color: T.steel, whiteSpace: "nowrap" }}>{total ? `${total} workout${total === 1 ? "" : "s"} · ${active} day${active === 1 ? "" : "s"}` : "No workouts yet"}</div>
       </div>
-      {weeks.map((week) => (
-        <div key={week[0].dateKey} style={{ display: "grid", gridTemplateColumns: columns, alignItems: "center" }}>
-          <span style={{ fontSize: 11, color: T.steel, lineHeight: 1.3 }}>
-            {calendarDate(week[0].dateKey).toLocaleDateString("en-SG", { timeZone: "Asia/Singapore", day: "numeric", month: "short" })}
-          </span>
-          {week.map((day) => {
-            const count = day.sessions.length, expanded = selectedDay && selectedDay.dateKey === day.dateKey;
-            return (
-              <button key={day.dateKey} type="button" data-date={day.dateKey}
-                aria-label={`${dateLabel(day.dateKey)}, ${count} workout${count === 1 ? "" : "s"}${day.isToday ? ", today" : ""}`}
-                aria-expanded={count > 0 ? !!expanded : undefined} aria-controls={count > 0 ? "week-strip-sessions" : undefined}
-                disabled={count === 0} onClick={() => setSelectedDate(expanded ? null : day.dateKey)}
-                style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", minWidth: 0, minHeight: 44, padding: 0, border: "none", borderRadius: 6, background: expanded ? T.bg : "transparent", cursor: count > 0 ? "pointer" : "default" }}>
-                <span aria-hidden="true" style={{ width: 12, height: 12, boxSizing: "border-box", borderRadius: "50%", background: count > 0 ? T.green : "transparent", border: `2px solid ${day.isFuture ? T.line : count > 0 ? T.green : T.regionOff}`, outline: day.isToday ? `2px solid ${T.green}` : "none", outlineOffset: 3 }} />
-              </button>
-            );
-          })}
-        </div>
-      ))}
-      <div style={{ fontSize: 11.5, color: T.steel, marginTop: 4 }}>Outlined dot: today · Singapore time</div>
+      <div aria-hidden="true" style={{ display: "grid", gridTemplateColumns: columns, alignItems: "center", fontSize: 11, fontWeight: 600, color: T.steel, textAlign: "center" }}>
+        <span />
+        {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => <span key={i}>{d}</span>)}
+      </div>
+      <div role="group" aria-label="Workouts in the last 8 weeks">
+        {weeks.map((week) => (
+          <div key={week[0].dateKey} style={{ display: "grid", gridTemplateColumns: columns, alignItems: "center" }}>
+            <span aria-hidden="true" style={{ fontSize: 11, color: T.steel, whiteSpace: "nowrap" }}>{fmtDate(week[0].dateKey, { day: "numeric", month: "short" })}</span>
+            {week.map((day) => {
+              const count = day.sessions.length, expanded = selectedDay && selectedDay.dateKey === day.dateKey;
+              return (
+                <button key={day.dateKey} type="button" data-date={day.dateKey} data-selected={expanded ? "true" : undefined}
+                  aria-label={`${fmtDate(day.dateKey, { weekday: "long", day: "numeric", month: "long", year: "numeric" })}${day.isToday ? ", today" : ""}: ${day.isFuture ? "upcoming" : `${count} workout${count === 1 ? "" : "s"}`}`}
+                  aria-expanded={count > 0 ? !!expanded : undefined} aria-controls={count > 0 ? "week-strip-sessions" : undefined}
+                  disabled={count === 0} onClick={() => setSelectedDate(expanded ? null : day.dateKey)}
+                  style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", minWidth: 0, minHeight: 44, padding: 0, border: "none", borderRadius: 8, background: expanded ? T.silhouette : "transparent", cursor: count > 0 ? "pointer" : "default" }}>
+                  <span aria-hidden="true" style={{
+                    position: "relative", width: 18, height: 18, boxSizing: "border-box", borderRadius: "50%",
+                    background: count > 0 ? T.green : "transparent",
+                    border: `2px solid ${count > 0 ? T.green : day.isFuture ? "transparent" : T.regionOff}`,
+                    boxShadow: day.isToday ? `0 0 0 2px ${expanded ? T.silhouette : T.card}, 0 0 0 4px ${T.orange}` : "none",
+                  }}>
+                    {count > 1 && <span style={{ position: "absolute", top: -8, right: -10, fontSize: 10, fontWeight: 800, lineHeight: 1, color: T.green }}>{count}</span>}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+      <div data-week-key style={{ fontSize: 11.5, color: T.steel, marginTop: 4 }}>Filled = workout · Ring = today · Tap a day for details</div>
       {selectedDay && (
-        <div id="week-strip-sessions" style={{ borderTop: `1px solid ${T.line}`, marginTop: 10, paddingTop: 10, overflowWrap: "anywhere" }}>
-          <div className="disp" style={{ fontWeight: 800, fontSize: 15, color: T.green }}>{dateLabel(selectedDay.dateKey)}</div>
+        <div id="week-strip-sessions" style={{ borderTop: `1px solid ${T.line}`, marginTop: 8, paddingTop: 8, overflowWrap: "anywhere" }}>
+          <div className="disp" style={{ fontWeight: 700, fontSize: 14, color: T.ink, textTransform: "uppercase", letterSpacing: "0.05em" }}>{fmtDate(selectedDay.dateKey, { weekday: "short", day: "numeric", month: "short" })}</div>
           {selectedDay.sessions.map((en, i) => (
-            <div key={`${en.date}-${i}`} style={{ marginTop: 8, fontSize: 13, lineHeight: 1.5 }}>
-              <div style={{ fontWeight: 700, color: T.ink }}>{en.corner}</div>
-              <div style={{ color: T.steel }}>{en.focus} · {new Date(en.date).toLocaleTimeString("en-SG", { timeZone: "Asia/Singapore", hour: "numeric", minute: "2-digit" })} SGT</div>
+            <div key={`${en.date}-${i}`} style={{ fontSize: 13.5, color: T.ink, marginTop: 4, lineHeight: 1.4 }}>
+              <b>{en.corner || "Unnamed corner"}</b> · {en.focus || "Workout"}
+              <span style={{ color: T.steel }}> · {new Date(en.date).toLocaleTimeString("en-SG", { timeZone: "Asia/Singapore", hour: "numeric", minute: "2-digit" })}{en.durationSec ? ` · ${Math.max(1, Math.round(en.durationSec / 60))} min` : ""}</span>
             </div>
           ))}
         </div>
@@ -3837,14 +3849,19 @@ function FitnessCornerGenerator() {
             <button onClick={() => setStep(0)} className="disp" style={{ background: "transparent", border: "none", color: T.green, fontWeight: 800, fontSize: 13, textTransform: "uppercase", letterSpacing: "0.06em", padding: "0 0 10px" }}>‹ Equipment</button>
             {(() => {
               const ex = stats.explorer;
+              // Streak → Log tab week view (scroll once it has rendered).
+              const openWeekView = () => { setStep(4); setTimeout(() => { const el = document.querySelector("[data-week-strip]"); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 50); };
               const exLabel = ex.tier ? ex.tier.label : "none";
               const need = ex.next ? ex.next.min - stats.unique : 0;
-              const Stat = ({ k, v, sub }) => (
-                <div data-stat={k} style={{ flex: 1, minWidth: 0 }}>
+              const Stat = ({ k, v, sub, onClick, label }) => {
+                const body = (<>
                   <div className="disp" style={{ fontWeight: 800, fontSize: 22, color: T.ink, lineHeight: 1 }}>{v}</div>
-                  <div style={{ fontSize: 11.5, color: T.steel, marginTop: 2, lineHeight: 1.25 }}>{sub}</div>
-                </div>
-              );
+                  <div style={{ fontSize: 11.5, color: onClick ? T.green : T.steel, fontWeight: onClick ? 600 : 400, marginTop: 2, lineHeight: 1.25 }}>{sub}</div>
+                </>);
+                return onClick
+                  ? <button type="button" data-stat={k} onClick={onClick} aria-label={label} style={{ flex: 1, minWidth: 0, minHeight: 44, textAlign: "left", background: "none", border: "none", padding: 0, cursor: "pointer", font: "inherit" }}>{body}</button>
+                  : <div data-stat={k} style={{ flex: 1, minWidth: 0 }}>{body}</div>;
+              };
               return (
                 <div data-profile style={{ background: T.card, border: `2px solid ${T.line}`, borderRadius: 10, padding: "12px 14px", marginBottom: 14 }}>
                   <div className="disp" style={{ fontWeight: 800, fontSize: 13, textTransform: "uppercase", letterSpacing: "0.1em", color: T.steel }}>Your progress</div>
@@ -3877,7 +3894,7 @@ function FitnessCornerGenerator() {
                     <Stat k="unique" v={stats.unique} sub="corners trained at" />
                     <Stat k="verified" v={stats.verified} sub="corners verified" />
                     <Stat k="total" v={stats.total} sub="counted workouts" />
-                    <Stat k="streak" v={stats.streak.current} sub={`week streak${stats.streak.best > stats.streak.current ? ` · best ${stats.streak.best}` : ""}`} />
+                    <Stat k="streak" v={stats.streak.current} sub={`week streak${stats.streak.best > stats.streak.current ? ` · best ${stats.streak.best}` : ""} ›`} label={`${stats.streak.current}-week streak. Show your last 8 weeks`} onClick={openWeekView} />
                   </div>
                   <div style={{ fontSize: 11.5, color: T.steel, marginTop: 10, lineHeight: 1.4 }}>
                     A workout counts when you start it from a saved corner (nearest, My corners or Go) and save it at the end. Streak = weeks with at least one; rest days never break it.
