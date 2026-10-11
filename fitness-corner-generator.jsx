@@ -544,6 +544,30 @@ function weekKey(when) {
   d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
+// BEGIN buildWeekGrid
+// Shift to SGT, then use UTC calendar arithmetic regardless of host timezone.
+function buildWeekGrid(log, now) {
+  const dayMs = 86400000, offset = 8 * 3600000;
+  const nowMs = now instanceof Date ? now.getTime() : now;
+  if (typeof nowMs !== "number" || !Number.isFinite(nowMs)) throw new RangeError("Invalid now");
+  const today = Math.floor((nowMs + offset) / dayMs) * dayMs;
+  const monday = today - ((new Date(today).getUTCDay() + 6) % 7) * dayMs;
+  const start = monday - 7 * 7 * dayMs;
+  const rows = Array.from({ length: 8 }, (_, w) => Array.from({ length: 7 }, (_, d) => {
+    const at = start + (w * 7 + d) * dayMs;
+    return { dateKey: new Date(at).toISOString().slice(0, 10), isToday: at === today, isFuture: at > today, sessions: [] };
+  }));
+  const sessions = (Array.isArray(log) ? log : []).filter((en) => en && typeof en.date === "string")
+    .map((en) => ({ en, at: Date.parse(en.date) }))
+    .filter(({ at }) => Number.isFinite(at) && at <= nowMs && at + offset >= start)
+    .sort((a, b) => a.at - b.at);
+  sessions.forEach(({ en, at }) => {
+    const idx = Math.floor((at + offset - start) / dayMs);
+    if (idx < 56) rows[Math.floor(idx / 7)][idx % 7].sessions.push(en);
+  });
+  return rows;
+}
+// END buildWeekGrid
 function weeklyStreak(visits, nowMs = Date.now()) {
   const weeks = new Set(visits.map((v) => weekKey(v.at)));
   const stepBack = (wk) => { const [y, m, dd] = wk.split("-").map(Number); return weekKey(new Date(y, m - 1, dd - 7, 12).getTime()); };
@@ -1915,6 +1939,76 @@ function FitnessTest({ initial, hasStorage, isFirst, currentEff, keepEff, onSkip
   return null;
 }
 
+// Dot colours: dark = a workout that counts (in fc-visits, same rule as the
+// streak and corner tiers), pale = only workouts with no counted corner,
+// gold = today (outline until today has a workout, then solid).
+const WEEK_PALE = "#9CC2A6";
+function WeekStrip({ log, visits }) {
+  const [selectedDate, setSelectedDate] = useState(null);
+  const weeks = buildWeekGrid(log, Date.now());
+  const countedAt = new Set((visits || []).map((v) => v && v.at));
+  const isCounted = (en) => en.counted === true || countedAt.has(en.date);
+  const cornerText = (en) => (isCounted(en) ? en.corner : !en.corner || en.corner === "Unnamed corner" ? "No corner" : `${en.corner} (not counted)`);
+  const days = weeks.flat();
+  const selectedDay = days.find((day) => day.dateKey === selectedDate && day.sessions.length > 0);
+  const total = days.reduce((n, day) => n + day.sessions.length, 0);
+  const active = days.filter((day) => day.sessions.length > 0).length;
+  const calendarDate = (dateKey) => new Date(`${dateKey}T12:00:00+08:00`);
+  const fmtDate = (dateKey, opts) => calendarDate(dateKey).toLocaleDateString("en-SG", { timeZone: "Asia/Singapore", ...opts });
+  const columns = "44px repeat(7, minmax(0, 1fr))";
+  return (
+    <div data-week-strip style={{ background: T.card, border: `2px solid ${T.green}`, borderRadius: 10, padding: "12px 10px 10px", marginBottom: 14, scrollMarginTop: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, marginBottom: 4 }}>
+        <div className="disp" style={{ fontWeight: 800, fontSize: 15, textTransform: "uppercase", letterSpacing: "0.08em", color: T.green }}>Last 8 weeks</div>
+        <div data-week-total style={{ fontSize: 12.5, color: T.steel, whiteSpace: "nowrap" }}>{total ? `${total} workout${total === 1 ? "" : "s"} · ${active} day${active === 1 ? "" : "s"}` : "No workouts yet"}</div>
+      </div>
+      <div aria-hidden="true" style={{ display: "grid", gridTemplateColumns: columns, alignItems: "center", fontSize: 11, fontWeight: 600, color: T.steel, textAlign: "center" }}>
+        <span />
+        {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => <span key={i}>{d}</span>)}
+      </div>
+      <div role="group" aria-label="Workouts in the last 8 weeks">
+        {weeks.map((week) => (
+          <div key={week[0].dateKey} style={{ display: "grid", gridTemplateColumns: columns, alignItems: "center" }}>
+            <span aria-hidden="true" style={{ fontSize: 11, color: T.steel, whiteSpace: "nowrap" }}>{fmtDate(week[0].dateKey, { day: "numeric", month: "short" })}</span>
+            {week.map((day) => {
+              const count = day.sessions.length, expanded = selectedDay && selectedDay.dateKey === day.dateKey;
+              const atCorner = day.sessions.some(isCounted);
+              const fill = !count ? "transparent" : day.isToday ? T.yellow : atCorner ? T.green : WEEK_PALE;
+              return (
+                <button key={day.dateKey} type="button" data-date={day.dateKey} data-selected={expanded ? "true" : undefined} data-dot={!count ? "none" : atCorner ? "corner" : "no-corner"}
+                  aria-label={`${fmtDate(day.dateKey, { weekday: "long", day: "numeric", month: "long", year: "numeric" })}${day.isToday ? ", today" : ""}: ${day.isFuture ? "upcoming" : `${count} workout${count === 1 ? "" : "s"}${count && !atCorner ? ", no corner" : ""}`}`}
+                  aria-expanded={count > 0 ? !!expanded : undefined} aria-controls={count > 0 ? "week-strip-sessions" : undefined}
+                  disabled={count === 0} onClick={() => setSelectedDate(expanded ? null : day.dateKey)}
+                  style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", minWidth: 0, minHeight: 44, padding: 0, border: "none", borderRadius: 8, background: expanded ? T.silhouette : "transparent", cursor: count > 0 ? "pointer" : "default" }}>
+                  <span aria-hidden="true" style={{
+                    position: "relative", width: 18, height: 18, boxSizing: "border-box", borderRadius: "50%",
+                    background: fill,
+                    border: day.isToday ? `3px solid ${T.yellow}` : `2px solid ${count > 0 ? fill : day.isFuture ? "transparent" : T.regionOff}`,
+                  }}>
+                    {count > 1 && <span style={{ position: "absolute", top: -8, right: -10, fontSize: 10, fontWeight: 800, lineHeight: 1, color: T.green }}>{count}</span>}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+      <div data-week-key style={{ fontSize: 11.5, color: T.steel, marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Dark = saved corner · Pale = no corner · Gold = today · Tap a day</div>
+      {selectedDay && (
+        <div id="week-strip-sessions" style={{ borderTop: `1px solid ${T.line}`, marginTop: 8, paddingTop: 8, overflowWrap: "anywhere" }}>
+          <div className="disp" style={{ fontWeight: 700, fontSize: 14, color: T.ink, textTransform: "uppercase", letterSpacing: "0.05em" }}>{fmtDate(selectedDay.dateKey, { weekday: "short", day: "numeric", month: "short" })}</div>
+          {selectedDay.sessions.map((en, i) => (
+            <div key={`${en.date}-${i}`} style={{ fontSize: 13.5, color: T.ink, marginTop: 4, lineHeight: 1.4 }}>
+              <b>{cornerText(en)}</b> · {en.focus || "Workout"}
+              <span style={{ color: T.steel }}> · {new Date(en.date).toLocaleTimeString("en-SG", { timeZone: "Asia/Singapore", hour: "numeric", minute: "2-digit" })}{en.durationSec ? ` · ${Math.max(1, Math.round(en.durationSec / 60))} min` : ""}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function FitnessCornerGenerator() {
   const [step, setStep] = useState(0);
   const [eq, setEq] = useState(["highBar", "parallelBars", "situpBench", "bench"]);
@@ -2169,13 +2263,14 @@ function FitnessCornerGenerator() {
 
   const saveCorner = async () => {
     const name = cornerName.trim();
-    if (!name) return;
-    if (savedCorners[name] && !window.confirm(`"${name}" is already saved. Replace its equipment with what's ticked now?`)) return;
+    if (!name) return null;
+    if (savedCorners[name] && !window.confirm(`"${name}" is already saved. Replace its equipment with what's ticked now?`)) return null;
     setActiveCorner(name); setCornerName("");
     await writeCorners({ ...savedCorners, [name]: eq });
     // A different list now lives under this name: it's no longer a confirmed map corner.
     const linked = Object.values(places).find((pl) => pl.corner === name);
     if (linked) { const np = { ...places }; delete np[linked.id]; await writePlaces(np); }
+    return name;
   };
 
   // A map corner counts as confirmed only while its saved corner still exists.
@@ -3244,6 +3339,21 @@ function FitnessCornerGenerator() {
         {/* ================= STEP 3: WORKOUT ================= */}
         {!testRun && step === 2 && (
           <>
+            {phase === "idle" && celebration && celebration.notCounted === "corner" && (
+              <div data-save-corner-prompt className="panel-reveal" style={{ background: T.card, border: `1px solid ${T.line}`, borderRadius: 10, padding: "10px 12px", marginBottom: 14 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ flex: 1, fontSize: 13.5, color: T.ink, lineHeight: 1.35 }}><b>Save this corner?</b> <span style={{ color: T.steel }}>Then workouts here count.</span></div>
+                  <button data-save-corner-skip onClick={() => setCelebration(null)} style={{ background: "transparent", border: "none", color: T.steel, fontSize: 13, fontWeight: 600, minHeight: 36, padding: "0 4px" }}>Not now</button>
+                </div>
+                <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                  <input data-save-corner-name value={cornerName} onChange={(e) => setCornerName(e.target.value)} placeholder="Name it (e.g. Bedok Res PCN)" aria-label="Corner name"
+                    style={{ flex: 1, minWidth: 0, padding: "9px 10px", borderRadius: 8, border: `2px solid ${T.line}`, fontSize: 14, fontFamily: "inherit", background: T.card }} />
+                  <button data-save-corner-go disabled={!cornerName.trim()} className="disp"
+                    onClick={async () => { if (await saveCorner()) { setCornerVia("pick"); setCelebration(null); } }}
+                    style={{ background: cornerName.trim() ? T.green : T.line, color: "#fff", border: "none", borderRadius: 8, padding: "0 14px", fontWeight: 800, fontSize: 13, textTransform: "uppercase" }}>Save</button>
+                </div>
+              </div>
+            )}
             {phase === "idle" && celebration && !celebration.notCounted && (celebration.up || celebration.explorer) && (
               <div data-celebration className="panel-reveal" style={{ background: T.card, border: `2px solid ${celebration.tier.color}`, borderLeft: `8px solid ${celebration.tier.color}`, borderRadius: 10, padding: "12px 14px", marginBottom: 14 }}>
                 <div style={{ display: "flex", alignItems: "flex-start" }}>
@@ -3763,14 +3873,19 @@ function FitnessCornerGenerator() {
             <button onClick={() => setStep(0)} className="disp" style={{ background: "transparent", border: "none", color: T.green, fontWeight: 800, fontSize: 13, textTransform: "uppercase", letterSpacing: "0.06em", padding: "0 0 10px" }}>‹ Equipment</button>
             {(() => {
               const ex = stats.explorer;
+              // Streak → Log tab week view (scroll once it has rendered).
+              const openWeekView = () => { setStep(4); setTimeout(() => { const el = document.querySelector("[data-week-strip]"); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 50); };
               const exLabel = ex.tier ? ex.tier.label : "none";
               const need = ex.next ? ex.next.min - stats.unique : 0;
-              const Stat = ({ k, v, sub }) => (
-                <div data-stat={k} style={{ flex: 1, minWidth: 0 }}>
+              const Stat = ({ k, v, sub, onClick, label }) => {
+                const body = (<>
                   <div className="disp" style={{ fontWeight: 800, fontSize: 22, color: T.ink, lineHeight: 1 }}>{v}</div>
-                  <div style={{ fontSize: 11.5, color: T.steel, marginTop: 2, lineHeight: 1.25 }}>{sub}</div>
-                </div>
-              );
+                  <div style={{ fontSize: 11.5, color: onClick ? T.green : T.steel, fontWeight: onClick ? 600 : 400, marginTop: 2, lineHeight: 1.25 }}>{sub}</div>
+                </>);
+                return onClick
+                  ? <button type="button" data-stat={k} onClick={onClick} aria-label={label} style={{ flex: 1, minWidth: 0, minHeight: 44, textAlign: "left", background: "none", border: "none", padding: 0, cursor: "pointer", font: "inherit" }}>{body}</button>
+                  : <div data-stat={k} style={{ flex: 1, minWidth: 0 }}>{body}</div>;
+              };
               return (
                 <div data-profile style={{ background: T.card, border: `2px solid ${T.line}`, borderRadius: 10, padding: "12px 14px", marginBottom: 14 }}>
                   <div className="disp" style={{ fontWeight: 800, fontSize: 13, textTransform: "uppercase", letterSpacing: "0.1em", color: T.steel }}>Your progress</div>
@@ -3803,7 +3918,7 @@ function FitnessCornerGenerator() {
                     <Stat k="unique" v={stats.unique} sub="corners trained at" />
                     <Stat k="verified" v={stats.verified} sub="corners verified" />
                     <Stat k="total" v={stats.total} sub="counted workouts" />
-                    <Stat k="streak" v={stats.streak.current} sub={`week streak${stats.streak.best > stats.streak.current ? ` · best ${stats.streak.best}` : ""}`} />
+                    <Stat k="streak" v={stats.streak.current} sub={`week streak${stats.streak.best > stats.streak.current ? ` · best ${stats.streak.best}` : ""} ›`} label={`${stats.streak.current}-week streak. Show your last 8 weeks`} onClick={openWeekView} />
                   </div>
                   <div style={{ fontSize: 11.5, color: T.steel, marginTop: 10, lineHeight: 1.4 }}>
                     A workout counts when you start it from a saved corner (nearest, My corners or Go) and save it at the end. Streak = weeks with at least one; rest days never break it.
@@ -3858,6 +3973,7 @@ function FitnessCornerGenerator() {
               <div style={{ color: T.steel, fontSize: 14 }}>Loading your history…</div>
             ) : (
               <>
+                <WeekStrip log={log} visits={visitList} />
                 <button data-log-mycorners onClick={() => setStep(5)} className="disp" style={{ width: "100%", marginBottom: 14, background: T.card, color: T.green, border: `2px solid ${T.green}`, borderRadius: 10, padding: "10px 14px", textAlign: "left", fontWeight: 800, fontSize: 15, textTransform: "uppercase", letterSpacing: "0.05em" }}>
                   My corners &amp; progress ›
                   <span style={{ fontFamily: "'Barlow', system-ui, sans-serif", textTransform: "none", letterSpacing: 0, fontWeight: 500, fontSize: 12.5, color: T.steel, marginLeft: 6 }}>{stats.unique} corner{stats.unique === 1 ? "" : "s"} · {stats.total} counted · {stats.streak.current}-week streak</span>
