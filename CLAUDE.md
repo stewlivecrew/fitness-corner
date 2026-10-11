@@ -85,6 +85,10 @@ accounts, no external runtime requests. Node.js (ESLint + esbuild) is a
   the `.jsx` from data.gov.sg open data (stdlib Python + curl; raw
   downloads cached in `build/corners-src/`, `--refresh` re-downloads).
   Never hand-edit the block. See Layer 2 > Nearest corner.
+- `scripts/test_week_grid.mjs` — dependency-free unit test for the
+  `buildWeekGrid` helper (extracts it from the `.jsx` between the
+  `// BEGIN/END buildWeekGrid` markers — keep them); re-runs itself
+  under UTC, Singapore and Los Angeles TZ. `node scripts/test_week_grid.mjs`.
 - `CLAUDE.md` — this file
 
 **Owner intent:** Not a money project. Pay-once/"cover hosting costs" model
@@ -492,6 +496,40 @@ see the design doc summarised in the `[fitness-test]` decision entry.
   `{ id, leg, of }` so a course counts per corner AND as one run.
   Leaderboards/social = future paid, not built.
 
+### Week view (Log tab)
+
+- **What:** `WeekStrip` card at the top of the Log tab: the last 8 weeks
+  as Mon–Sun rows (row label = that Monday's date), one dot per day; tap a
+  day with workouts to list them underneath (corner, focus, SG time,
+  minutes); tap again to close. Read-only over `fc-log` + `fc-visits` — no
+  new storage. Fits 390 px; every day is a 44 px button with an aria-label
+  (weekday, date, "today", count, "no corner").
+- **Dates:** pure `buildWeekGrid(log, now)` — SG dates computed from UTC
+  + 8 h (never the device timezone), Monday-start weeks, exactly 56 days
+  ending with this week; older and future entries dropped; sessions per
+  day in time order. `now` is required.
+- **Dot rules (owner 2026-10-11):** dark green = the day has a workout
+  that COUNTS (in `fc-visits` or `counted: true` — the same rule as the
+  streak and corner tiers); pale green = only workouts with no counted
+  corner; a day with both is dark. **Today is gold**: gold outline with no
+  workout yet, solid gold dot once there is one. A small number marks 2+
+  workouts. The selected day is a light background behind its dot (never a
+  gold fill — the owner read that as "today"). One-line key under the
+  grid: "Dark = saved corner · Pale = no corner · Gold = today · Tap a
+  day". Day details say "No corner" for corner-less workouts and
+  "<name> (not counted)" for a named but uncounted one. The total line
+  ("14 workouts · 12 days") counts ALL workouts.
+- **Streak** (unchanged rule: counted corner workouts only) on the Your
+  progress card is a button that opens the Log tab and scrolls to the
+  week view.
+- **"Save this corner?"** After saving a workout with no saved corner
+  (`celebration.notCounted === "corner"`) the Workout tab shows one light
+  card: name field + Save (reuses `saveCorner()` — today's equipment,
+  same overwrite confirm) + "Not now". Save links the corner
+  (`cornerVia: "pick"`) so the next workout there counts; the workout
+  already saved is NOT retro-counted. In-memory only, so it never comes
+  back for that workout (dismiss, reload or next Start clears it).
+
 ### Content style rules (enforce on every DB edit)
 
 - `how` text: body position BEFORE movement ("Lie on your back with
@@ -806,6 +844,26 @@ Format: `[decision] what — why. (supersedes: none unless noted)`
   `fc-visits` key (the log is capped at 100) and need a saved workout +
   a deliberate corner pick (60% ticked-done threshold dropped by the
   owner 2026-10-09 — finishing and saving is enough). Thresholds provisional in `BADGE_CONFIG`.
+
+- [week-view] (owner 2026-10-11) 8-week dot grid in the Log tab instead
+  of a calendar or chart — glanceable "did I train this week", reuses
+  the log, no new storage. Dark/pale dots follow the streak's counting
+  rule so the two never disagree; gold = today; selection is a
+  background, not a fill.
+- [build-handoff] First Codex pilot (2026-10-11): the week view's
+  `buildWeekGrid` + first `WeekStrip` were written by Codex CLI
+  (gpt-6.1-sol, owner's personal ChatGPT plan) from an approved plan,
+  verified by Tej (unit test, lint, build, headless 390 px checks in SG
+  and LA time), and compared side by side with a Tej-only version; the
+  shipped one is Codex's code + Tej's visuals. Framework:
+  frontier-radar/topics/build-handoff-framework.md. **Lesson (rule):**
+  `npm run release` syncs the `.jsx` FROM `sandbox.html`, so a
+  `.jsx`-only edit is silently overwritten. Every Codex prompt must
+  either allow `sandbox.html` edits (preferred — it is the editing
+  copy) or include the port step (copy the `.jsx` body back into
+  `sandbox.html`, then check `npm run sync` changes nothing). Browser
+  checks must find elements by accessible labels/data attributes, not one
+  implementation's wording.
 
 ### Known limitations (honest list)
 
